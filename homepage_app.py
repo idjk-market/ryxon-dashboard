@@ -1,101 +1,105 @@
+# homepage_app.py
 import streamlit as st
 from streamlit_option_menu import option_menu
 
 st.set_page_config(
-    page_title="Ryxon Risk Intelligence",
+    page_title="Ryxon – Trading Risk Intelligence",
     layout="wide",
-    page_icon="📊"
+    page_icon="📊",
+    initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Styling ---
+# --- Header ---
 st.markdown("""
-<style>
+    <style>
     .main {
-        background-color: #f9f9fb;
-        padding: 2rem;
+        background-color: #f5f7fa;
     }
     h1 {
-        font-size: 3.2rem;
-        font-weight: 700;
-        color: #1F4E79;
+        color: #3f51b5;
+        font-size: 3rem;
     }
-    h3 {
-        color: #444;
+    h4 {
+        color: #333333;
     }
-    .menu-title {
-        font-weight: 600;
-        font-size: 1.2rem;
+    .feature-box {
+        background-color: white;
+        border-left: 6px solid #3f51b5;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.05);
     }
-    .stButton>button {
-        background-color: #1F4E79;
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        font-weight: 600;
-        border-radius: 8px;
+    .footer {
+        margin-top: 4rem;
+        text-align: center;
+        font-size: 0.9rem;
+        color: #888;
     }
-</style>
+    </style>
 """, unsafe_allow_html=True)
 
-# --- Header Section ---
-st.markdown("""
-<h1>Ryxon – The Edge of Trading Risk Intelligence</h1>
-<h3>Your real-time decision engine for derivatives and commodities.</h3>
-""", unsafe_allow_html=True)
-
-# --- Menu Bar (Top Nav) ---
-with st.container():
+# --- Navigation ---
+with st.sidebar:
     selected = option_menu(
-        menu_title=None,
-        options=["Home", "About", "Dashboard", "Contact"],
-        icons=["house", "info-circle", "bar-chart", "envelope"],
-        orientation="horizontal",
-        styles={
-            "nav-link": {"font-size": "16px", "margin": "0px", "--hover-color": "#f0f2f6"},
-            "icon": {"color": "#1F4E79", "font-size": "18px"},
-            "nav-link-selected": {"background-color": "#1F4E79", "color": "white"},
-        }
+        menu_title="Ryxon Menu",
+        options=["Home", "Dashboard"],
+        icons=["house", "bar-chart"],
+        default_index=0,
+        menu_icon="grid-3x3-gap-fill"
     )
 
-# --- Main Content ---
+# --- Main Page ---
 if selected == "Home":
     st.markdown("""
-    <div style='margin-top: 2rem;'>
-        <h3 class='menu-title'>What We Offer</h3>
-        <ul>
-            <li><b>Mark-to-Market (MTM)</b> Calculations with real-time PnL impact</li>
-            <li><b>Realized & Unrealized PnL</b> summaries with drill-down</li>
-            <li><b>Value at Risk (VaR)</b> with dynamic confidence level settings</li>
-            <li><b>Monte Carlo Simulations</b> and Stress Testing</li>
-            <li><b>Scenario Analysis</b> tailored to your book</li>
-        </ul>
-    </div>
-    <div style='margin-top: 3rem;'>
-        <h3 class='menu-title'>Built For:</h3>
-        <ul>
-            <li>Commodity Risk Managers</li>
-            <li>Derivatives Traders</li>
-            <li>Hedge Accounting Teams</li>
-            <li>Algo Trading Desks</li>
-        </ul>
-    </div>
+        <h1>Ryxon – The Edge of Trading Risk Intelligence</h1>
+        <h4>Built for traders who demand precision, control, and confidence.</h4>
+        <p>Welcome to <strong>Ryxon</strong>, your AI-powered companion for managing commodity and derivatives risk with real-time dashboards, analytics, and actionable insights.</p>
     """, unsafe_allow_html=True)
 
-elif selected == "About":
-    st.subheader("About Ryxon")
-    st.write("Ryxon is designed by professionals with deep expertise in CTRM, derivatives, and risk management. The platform was born out of real trading desk pain points, now transformed into one sleek intelligence layer.")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("""
+        <div class='feature-box'>
+        <h5>📈 MTM Calculation</h5>
+        Calculate mark-to-market profit/loss for every trade in real-time.
+        </div>
+
+        <div class='feature-box'>
+        <h5>📊 Realized & Unrealized PnL</h5>
+        Visualize your profit flow, day-by-day and trade-by-trade.
+        </div>
+
+        <div class='feature-box'>
+        <h5>📉 Value at Risk (VaR)</h5>
+        Understand your worst-case exposure under normal conditions.
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("""
+        <div class='feature-box'>
+        <h5>🧠 Monte Carlo Simulation</h5>
+        Model future market behavior with confidence intervals.
+        </div>
+
+        <div class='feature-box'>
+        <h5>🔍 Stress Testing & Scenario Analysis</h5>
+        Analyze your portfolio under historical or hypothetical shocks.
+        </div>
+
+        <div class='feature-box'>
+        <h5>🔗 API-Based Integration</h5>
+        Plug into live pricing, ERP, and trade sources in real-time.
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+        <div class='footer'>
+        Created by djk — <i>Markets from the desk of a trader.</i>
+        </div>
+    """, unsafe_allow_html=True)
 
 elif selected == "Dashboard":
-    st.success("Please go to your main dashboard using the sidebar or direct menu. (e.g. streamlit_app.py)")
-
-elif selected == "Contact":
-    st.subheader("Get in Touch")
-    st.markdown("Contact us at **support@ryxon.tech** or connect via LinkedIn")
-
-# --- Footer ---
-st.markdown("""
----
-<div style='text-align:center;'>
-    <small>Ryxon © 2025 | Built by djk — Markets from the desk of a trader</small>
-</div>
-""", unsafe_allow_html=True)
+    st.markdown("<meta http-equiv='refresh' content='0; url=streamlit_app_master.py'>", unsafe_allow_html=True)
