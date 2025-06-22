@@ -2,92 +2,64 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 # --- Page Setup ---
 st.set_page_config(page_title="Ryxon Risk Intelligence Dashboard", layout="wide")
 st.title("📊 Ryxon – The Edge of Trading Risk Intelligence")
 
 # --- File Upload ---
-file = st.file_uploader("Upload Trade Data", type=["csv", "xlsx"])
+file = st.file_uploader("📤 Upload Trade Data File (.csv or .xlsx)", type=["csv", "xlsx"])
 if file:
     df = pd.read_excel(file) if file.name.endswith("xlsx") else pd.read_csv(file)
     df["Trade Date"] = pd.to_datetime(df["Trade Date"])
 
-    # --- Sidebar Filters ---
-    st.sidebar.header("🔍 Filter Options")
-    with st.sidebar:
-        commodity = st.multiselect("Select Commodity", df["Commodity"].unique(), default=df["Commodity"].unique())
-        instr = st.multiselect("Select Instrument", df["Instrument Type"].unique(), default=df["Instrument Type"].unique())
-        action = st.multiselect("Trade Action", df["Trade Action"].unique(), default=df["Trade Action"].unique())
-        date_range = st.date_input("Trade Date Range", [df["Trade Date"].min(), df["Trade Date"].max()])
+    # --- Dynamic Table Display ---
+    st.markdown("### 📄 Filtered Trade Data")
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
-    df_filtered = df[
-        (df["Commodity"].isin(commodity)) &
-        (df["Instrument Type"].isin(instr)) &
-        (df["Trade Action"].isin(action)) &
-        (df["Trade Date"] >= pd.to_datetime(date_range[0])) &
-        (df["Trade Date"] <= pd.to_datetime(date_range[1]))
-    ]
+    # --- MTM Calculation Section ---
+    with st.expander("📘 MTM Calculation Logic"):
+        df["MTM"] = (df["Market Price"] - df["Book Price"]) * df["Quantity"]
+        st.markdown("Calculated MTM = (Market Price - Book Price) × Quantity")
+        st.dataframe(df[["Trade ID", "Commodity", "Instrument Type", "Trade Action", "Quantity", "Book Price", "Market Price", "MTM"]])
+        st.success(f"🔹 Total MTM Value: ₹ {df['MTM'].sum():,.2f}")
 
-    # --- Full Interactive Table (with filters per column) ---
-    st.markdown("### 📄 Filtered Trade Data (Search/Filter Any Column Below 👇)")
-    gb = GridOptionsBuilder.from_dataframe(df_filtered)
-    gb.configure_pagination(paginationAutoPageSize=True)
-    gb.configure_side_bar()
-    gb.configure_default_column(filter="agTextColumnFilter", editable=False, sortable=True, resizable=True)
-    grid_options = gb.build()
-    AgGrid(
-        df_filtered,
-        gridOptions=grid_options,
-        update_mode=GridUpdateMode.NO_UPDATE,
-        height=500,
-        width='100%',
-        theme='alpine'
-    )
+    # --- PnL Section ---
+    with st.expander("📙 Realized & Unrealized PnL"):
+        df["Realized PnL"] = np.where(df["Trade Action"] == "Sell", df["MTM"], 0)
+        df["Unrealized PnL"] = np.where(df["Trade Action"] == "Buy", df["MTM"], 0)
+        st.dataframe(df[["Trade ID", "Trade Action", "MTM", "Realized PnL", "Unrealized PnL"]])
+        st.success(f"✅ Realized PnL: ₹ {df['Realized PnL'].sum():,.2f}")
+        st.info(f"📌 Unrealized PnL: ₹ {df['Unrealized PnL'].sum():,.2f}")
 
-    # --- Expandable MTM ---
-    with st.expander("📘 MTM Calculation"):
-        df_filtered["MTM"] = (df_filtered["Market Price"] - df_filtered["Book Price"]) * df_filtered["Quantity"]
-        st.dataframe(df_filtered[["Trade ID", "Commodity", "Instrument Type", "Quantity", "Book Price", "Market Price", "MTM"]])
-        st.success(f"🔹 Total MTM: ₹ {df_filtered['MTM'].sum():,.2f}")
-
-    # --- Expandable PnL ---
-    with st.expander("📙 PnL Summary"):
-        df_filtered["Realized PnL"] = np.where(df_filtered["Trade Action"] == "Sell", df_filtered["MTM"], 0)
-        df_filtered["Unrealized PnL"] = np.where(df_filtered["Trade Action"] == "Buy", df_filtered["MTM"], 0)
-        st.dataframe(df_filtered[["Trade ID", "Trade Action", "MTM", "Realized PnL", "Unrealized PnL"]])
-        st.success(f"✅ Realized PnL: ₹ {df_filtered['Realized PnL'].sum():,.2f}")
-        st.info(f"📌 Unrealized PnL: ₹ {df_filtered['Unrealized PnL'].sum():,.2f}")
-
-    # --- Expandable VaR ---
+    # --- Value at Risk (VaR) Section ---
     with st.expander("📕 Value at Risk (VaR)"):
         confidence = st.slider("Select Confidence Level (%)", min_value=90, max_value=99, value=95)
-        z_scores = {90: 1.28, 95: 1.65, 99: 2.33}
-        z = z_scores[confidence]
+        z = np.interp(confidence, [90, 95, 99], [1.28, 1.65, 2.33])  # Interpolated z-value
 
-        df_sorted = df_filtered.sort_values("Trade Date")
-        df_sorted["Daily Return"] = df_sorted["MTM"].pct_change().fillna(0)
-        df_sorted["Rolling Std Dev"] = df_sorted["Daily Return"].rolling(window=10).std().fillna(0)
+        df = df.sort_values("Trade Date")
+        df["Daily Return"] = df["MTM"].pct_change().fillna(0)
+        df["Rolling Std Dev"] = df["Daily Return"].rolling(window=10).std().fillna(0)
+        df["1-Day VaR"] = -1 * (df["Daily Return"].mean() - z * df["Rolling Std Dev"]) * df["MTM"].abs()
 
-        df_sorted["1-Day VaR"] = -1 * (df_sorted["Daily Return"].mean() - z * df_sorted["Rolling Std Dev"]) * df_sorted["MTM"].abs()
-        st.dataframe(df_sorted[["Trade ID", "Daily Return", "Rolling Std Dev", "1-Day VaR"]], use_container_width=True)
+        st.dataframe(df[["Trade ID", "Daily Return", "Rolling Std Dev", "1-Day VaR"]])
+        st.warning(f"⚠️ Latest 1-Day VaR: ₹ {df['1-Day VaR'].iloc[-1]:,.2f} at {confidence}% confidence")
 
-    # --- Final Risk Summary ---
-    st.markdown("### 📊 Final Risk Summary")
+    # --- Final Risk Metrics Summary ---
+    st.markdown("### 🧾 Final Risk Summary")
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total MTM", f"₹ {df_filtered['MTM'].sum():,.2f}")
-    col2.metric("Realized PnL", f"₹ {df_filtered['Realized PnL'].sum():,.2f}")
-    col3.metric("Unrealized PnL", f"₹ {df_filtered['Unrealized PnL'].sum():,.2f}")
-    col4.metric(f"VaR ({confidence}%)", f"₹ {df_sorted['1-Day VaR'].iloc[-1]:,.2f}")
+    col1.metric("📉 MTM", f"₹ {df['MTM'].sum():,.2f}")
+    col2.metric("📈 Realized PnL", f"₹ {df['Realized PnL'].sum():,.2f}")
+    col3.metric("🧮 Unrealized PnL", f"₹ {df['Unrealized PnL'].sum():,.2f}")
+    col4.metric(f"🔻 VaR ({confidence}%)", f"₹ {df['1-Day VaR'].iloc[-1]:,.2f}")
 
-    # --- Visual Summary ---
-    st.markdown("#### 🔢 PnL Breakdown Chart")
-    pnl_chart = pd.DataFrame({
-        'Type': ['MTM', 'Realized PnL', 'Unrealized PnL'],
-        'Value': [df_filtered['MTM'].sum(), df_filtered['Realized PnL'].sum(), df_filtered['Unrealized PnL'].sum()]
+    # --- PnL Breakdown Bar Chart ---
+    st.markdown("#### 📊 PnL Breakdown Chart")
+    chart_df = pd.DataFrame({
+        "Type": ["MTM", "Realized PnL", "Unrealized PnL"],
+        "Value": [df["MTM"].sum(), df["Realized PnL"].sum(), df["Unrealized PnL"].sum()]
     })
-    fig = px.bar(pnl_chart, x='Type', y='Value', color='Type', title="PnL Composition", text_auto=True)
+    fig = px.bar(chart_df, x="Type", y="Value", color="Type", text_auto=True, title="PnL Components Overview")
     st.plotly_chart(fig, use_container_width=True)
 
-    st.success("✅ Dashboard generated successfully.")
+    st.success("✅ Risk dashboard successfully generated.")
