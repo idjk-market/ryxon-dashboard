@@ -1,71 +1,59 @@
-# streamlit_app_master.py
-
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+from datetime import datetime
 
-st.set_page_config(page_title="Ryxon Risk Intelligence", layout="wide")
-st.title("📈 Ryxon Trading Risk Dashboard")
+# --- Page Config ---
+st.set_page_config(page_title="Ryxon Risk Dashboard", layout="wide")
+st.title("📊 Ryxon Trading Risk Dashboard")
 
-# --- FILE UPLOAD ---
-st.sidebar.header("📂 Upload Trade File")
-file = st.sidebar.file_uploader("Upload Excel file", type=["xlsx", "csv"])
+# --- File Upload ---
+file = st.file_uploader("Upload Trade File", type=["xlsx", "csv"])
 
 if file:
-    if file.name.endswith(".csv"):
-        df = pd.read_csv(file)
-    else:
-        df = pd.read_excel(file)
+    df = pd.read_excel(file) if file.name.endswith("xlsx") else pd.read_csv(file)
+    df["Trade Date"] = pd.to_datetime(df["Trade Date"])
 
-    st.subheader("📌 Filtered Trade Data")
-
-    # Global multi-filter across all columns
-    filter_value = st.text_input("🔍 Search across all fields")
-    if filter_value:
-        df = df[df.apply(lambda row: row.astype(str).str.contains(filter_value, case=False).any(), axis=1)]
-
-    st.dataframe(df, use_container_width=True)
-
-    # --- RISK CALCULATION SECTION ---
-    st.subheader("📊 Value at Risk (VaR) Summary")
-
-    # Calculate Daily Return & Rolling Std Dev if not present
-    if 'Daily Return' not in df.columns:
-        df['Daily Return'] = df['MTM'].pct_change()
-    if 'Rolling Std Dev' not in df.columns:
-        df['Rolling Std Dev'] = df['Daily Return'].rolling(window=30).std()
-    if 'Notional' not in df.columns:
-        df['Notional'] = df['Quantity'] * df['Book Price']
-
-    # --- Confidence Level Selection ---
-    z_values = {"95%": 1.65, "99%": 2.33, "90%": 1.28}
-    confidence = st.radio("Select Confidence Level", list(z_values.keys()), horizontal=True)
-    z = z_values[confidence]
-
-    # --- Compute VaR ---
-    df[f'VaR {confidence}'] = - (df['Daily Return'].mean() - z * df['Rolling Std Dev']) * df['Notional']
-
-    st.write(f"### Computed 1-Day VaR @ {confidence} Confidence:")
-    st.dataframe(df[[
-        'Trade ID', 'Commodity', 'Instrument Type', 'Trade Action', 'Quantity',
-        'Book Price', 'Market Price', 'MTM', 'Realized PnL', 'Unrealized PnL', f'VaR {confidence}'
-    ]].dropna(), use_container_width=True)
-
-    # --- VaR Trend Plot ---
-    st.subheader("📉 VaR Over Time")
-    if 'Trade Date' in df.columns:
-        df['Trade Date'] = pd.to_datetime(df['Trade Date'])
-        plot_df = df.set_index('Trade Date')[[f'VaR {confidence}']].dropna()
-        st.line_chart(plot_df)
-
-    # --- Downloadable Link ---
-    st.download_button(
-        label="Download Updated Excel",
-        data=df.to_csv(index=False).encode('utf-8'),
-        file_name="ryxon_updated_var_data.csv",
-        mime="text/csv"
+    st.markdown("### 📌 Filtered Trade Data")
+    st.dataframe(
+        df,
+        use_container_width=True,
+        hide_index=True,
     )
 
-else:
-    st.warning("Please upload a file to begin.")
+    # --- Expandable: MTM Calculation ---
+    with st.expander("📘 MTM Calculation Logic"):
+        df["MTM"] = (df["Market Price"] - df["Book Price"]) * df["Quantity"]
+        st.write("Calculated MTM = (Market Price - Book Price) × Quantity")
+        st.dataframe(df[["Trade ID", "Commodity", "Quantity", "Book Price", "Market Price", "MTM"]], use_container_width=True)
+
+    # --- Expandable: Realized / Unrealized PnL ---
+    with st.expander("📙 PnL Summary"):
+        df["Realized PnL"] = np.where(df["Trade Action"].str.lower() == "sell", df["MTM"], 0)
+        df["Unrealized PnL"] = np.where(df["Trade Action"].str.lower() == "buy", df["MTM"], 0)
+        st.write("Based on Trade Action, classify MTM into Realized or Unrealized PnL")
+        st.dataframe(df[["Trade ID", "Trade Action", "MTM", "Realized PnL", "Unrealized PnL"]], use_container_width=True)
+
+    # --- Expandable: VaR Calculation ---
+    with st.expander("📕 Value at Risk (VaR)"):
+        df_sorted = df.sort_values("Trade Date")
+        df_sorted["Daily Return"] = df_sorted["MTM"].pct_change().fillna(0)
+        df_sorted["Rolling Std Dev"] = df_sorted["Daily Return"].rolling(window=10).std().fillna(0)
+
+        z_95 = 1.65
+        df_sorted["1-Day VaR"] = -1 * (df_sorted["Daily Return"].mean() - z_95 * df_sorted["Rolling Std Dev"]) * df_sorted["MTM"].abs()
+
+        st.write("Calculated 1-Day VaR @ 95% Confidence")
+        st.dataframe(df_sorted[["Trade ID", "Daily Return", "Rolling Std Dev", "1-Day VaR"]], use_container_width=True)
+
+    # --- Summary Section ---
+    st.markdown("### 📊 Final Risk Summary")
+    total_mtm = df["MTM"].sum()
+    total_real = df["Realized PnL"].sum()
+    total_unreal = df["Unrealized PnL"].sum()
+    latest_var = df_sorted["1-Day VaR"].iloc[-1] if not df_sorted.empty else 0
+
+    st.metric("Total MTM", f"₹ {total_mtm:,.2f}")
+    st.metric("Realized PnL", f"₹ {total_real:,.2f}")
+    st.metric("Unrealized PnL", f"₹ {total_unreal:,.2f}")
+    st.metric("Latest 1-Day VaR", f"₹ {latest_var:,.2f}")
