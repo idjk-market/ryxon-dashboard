@@ -1,133 +1,97 @@
 import streamlit as st
-from PIL import Image
-import base64
 
-# === PAGE CONFIG ===
-st.set_page_config(
-    page_title="Ryxon – Market Risk Intelligence",
-    page_icon="🚀",
-    layout="wide"
+st.set_page_config(page_title="Ryxon – Risk Intelligence", layout="wide")
+
+# --- LOGO AND TITLE ---
+st.markdown(
+    """
+    <div style="display:flex;align-items:center;gap:15px;">
+        <img src="https://raw.githubusercontent.com/idjk-market/ryxon-dashboard/main/ryxon_logo.png" width="60"/>
+        <h1 style="color:#4B0082;">Ready to Take Control of Risk?</h1>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-# === LOAD LOGO ===
-logo_path = "ryxon_logo.png"
-try:
-    logo = Image.open(logo_path)
-    st.image(logo, width=200)
-except FileNotFoundError:
-    st.warning("Logo not found. Please upload 'ryxon_logo.png' in the same directory.")
+st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
 
-# === CUSTOM STYLING ===
-st.markdown("""
-<style>
-    .main-title {
-        font-size: 42px;
-        font-weight: 700;
-        color: #4B0082;
-    }
-    .subsection {
-        background-color: #f0f2f6;
-        padding: 20px;
-        border-radius: 10px;
-        margin-bottom: 25px;
-    }
-    .cta {
-        background-color: #d1f5d3;
-        padding: 10px 20px;
-        border-radius: 10px;
-        color: #003300;
-        font-weight: bold;
-        font-size: 18px;
-    }
-    .feature-card {
-        background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# === MAIN TITLE ===
-st.markdown("<h1 class='main-title'>Welcome to Ryxon – The Edge of Trading Risk Intelligence</h1>", unsafe_allow_html=True)
-
-# === CTA ===
-st.markdown("""
-<div class='cta'>
-Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!
-</div>
-""", unsafe_allow_html=True)
+# --- LAUNCH DASHBOARD BUTTON (updated to use hyperlink) ---
+st.markdown(
+    """
+    <a href="https://ryxon-dashboard.streamlit.app/" target="_blank">
+        <button style='font-size:16px;padding:10px 20px;border-radius:8px;background-color:#5c5cff;color:white;border:none;'>
+            🚀 Launch Dashboard
+        </button>
+    </a>
+    """,
+    unsafe_allow_html=True
+)
 
 st.markdown("---")
 
-# === FEATURES ===
-st.markdown("<h2>Core Features</h2>", unsafe_allow_html=True)
+# --- FEATURES SECTION ---
+st.subheader("📊 Key Features")
+features = [
+    "📈 MTM & PnL Monitoring in Real Time",
+    "🛡️ Value at Risk (VaR), Historical VaR, Monte Carlo Simulation",
+    "📊 Stress Testing & Scenario Analysis",
+    "📂 Excel File Upload with Trade Breakdown",
+    "📉 Derivatives Pricing for Futures & Options",
+    "📌 Custom Risk Filters: Commodity, Counterparty, Instrument"
+]
+st.markdown("<ul>" + "".join(f"<li><strong>{f}</strong></li>" for f in features) + "</ul>", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# --- PRICING SECTION ---
+st.subheader("💼 Pricing Plans")
+
 cols = st.columns(3)
-with cols[0]:
-    st.markdown("""
-    <div class='feature-card'>
-    📈 <strong>Real-Time MTM & PnL</strong><br>
-    Live mark-to-market, realized and unrealized profit/loss view at trade level.
-    </div>
-    """, unsafe_allow_html=True)
+plans = [
+    {
+        "name": "Starter",
+        "price": "Free",
+        "desc": "Basic MTM, PnL, and VaR tools for individuals."
+    },
+    {
+        "name": "Pro",
+        "price": "$29/month",
+        "desc": "Unlimited uploads, Historical VaR, Monte Carlo."
+    },
+    {
+        "name": "Enterprise",
+        "price": "Custom",
+        "desc": "Full API access, priority support, & white-labeling."
+    }
+]
 
-with cols[1]:
-    st.markdown("""
-    <div class='feature-card'>
-    🌌 <strong>Dynamic Value at Risk</strong><br>
-    Historical & Monte Carlo VaR fully integrated with your exposure.
-    </div>
-    """, unsafe_allow_html=True)
+for i in range(3):
+    with cols[i]:
+        st.markdown(f"### {plans[i]['name']}")
+        st.markdown(f"**{plans[i]['price']}**")
+        st.markdown(plans[i]['desc'])
+        st.button(f"Choose {plans[i]['name']}", key=f"plan_{i}")
 
-with cols[2]:
-    st.markdown("""
-    <div class='feature-card'>
-    🪨 <strong>Stress & Scenario Testing</strong><br>
-    Built-in dashboards to model shocks, spikes, volatility swings.
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown("---")
 
-# === PRICING ===
-st.markdown("<h2>Pricing</h2>", unsafe_allow_html=True)
-cols = st.columns(3)
-with cols[0]:
-    st.markdown("""
-    <div class='subsection'>
-    💸 <strong>Free Tier</strong><br>
-    Access MTM + PnL + 10 trades per day.<br><br>
-    <em>Perfect for small traders.</em>
-    </div>
-    """, unsafe_allow_html=True)
-with cols[1]:
-    st.markdown("""
-    <div class='subsection'>
-    🤝 <strong>Professional</strong><br>
-    Everything + 100 trades/day + Stress Testing + Download.<br><br>
-    <em>For hedge desks, commodity traders.</em>
-    </div>
-    """, unsafe_allow_html=True)
-with cols[2]:
-    st.markdown("""
-    <div class='subsection'>
-    📊 <strong>Enterprise</strong><br>
-    Unlimited use, custom models, API integration.<br><br>
-    <em>Risk desks & institutions.</em>
-    </div>
-    """, unsafe_allow_html=True)
+# --- BLOG SECTION ---
+st.subheader("📰 Latest from the Blog")
+blog_list = [
+    ("5 Ways to Hedge Commodity Risk Like a Pro", "#"),
+    ("Understanding VaR in Real World Trading", "#"),
+    ("Stress Testing: A Risk Manager's Toolkit", "#")
+]
+for title, link in blog_list:
+    st.markdown(f"- [{title}]({link})")
 
-# === BLOG ===
-st.markdown("<h2>Latest Blog Highlights</h2>", unsafe_allow_html=True)
-st.markdown("""
-<ul>
-<li>📊 <strong>How Ryxon Helps Commodity Desks Hedge Better</strong></li>
-<li>📈 <strong>Top 3 Ways to Use VaR in Intraday Trading</strong></li>
-<li>🪟 <strong>Explained: Realized vs Unrealized PnL in F&O</strong></li>
-</ul>
-""", unsafe_allow_html=True)
+st.markdown("---")
 
-# === CTA BUTTON ===
-st.markdown("<h2>Ready to Take Control of Risk?</h2>", unsafe_allow_html=True)
-launch = st.button("Launch Dashboard")
-if launch:
-    st.success("Opening dashboard app...")
-    st.markdown("<meta http-equiv='refresh' content='0; url=https://ryxon-dashboard-4dwgjwhdscn6hhsrjc63tj.streamlit.app/'>", unsafe_allow_html=True)
+# --- FOOTER ---
+st.markdown(
+    """
+    <div style='text-align:center;color:gray;margin-top:30px;'>
+        © 2025 Ryxon Technologies – The Edge of Trading Risk Intelligence
+    </div>
+    """,
+    unsafe_allow_html=True
+)
