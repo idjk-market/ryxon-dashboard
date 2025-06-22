@@ -16,42 +16,57 @@ st.markdown("""
     </div>
 """, unsafe_allow_html=True)
 
-st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
+# ---- MAIN APP SELECTION ----
+if 'show_dashboard' not in st.session_state:
+    st.session_state.show_dashboard = False
 
-# ---- CTA BUTTON ----
-# Replace this URL with your actual Streamlit Cloud URL
-DASHBOARD_URL = "https://ryxon-dashboard.streamlit.app"  # Change this to your actual URL
+if not st.session_state.show_dashboard:
+    # Landing page content
+    st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
+    
+    # Working launch button
+    if st.button("🚀 Launch Dashboard", type="primary", use_container_width=True):
+        st.session_state.show_dashboard = True
+        st.rerun()
+    
+    # ---- FEATURE HIGHLIGHTS ----
+    st.markdown("## 🔍 Features You'll Love")
+    st.markdown("""
+    <ul style="font-size: 1.1rem; line-height: 1.6;">
+        <li>📊 <strong>Real-time MTM & PnL Tracking</strong> – Upload trades and instantly view live MTM values</li>
+        <li>🛡️ <strong>Value at Risk (VaR)</strong> – Parametric & Historical VaR with confidence control</li>
+        <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
+        <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
+        <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
+    </ul>
+    """, unsafe_allow_html=True)
 
-st.markdown(f"""
-    <div style='text-align: center; margin-top: 20px;'>
-        <a href='{DASHBOARD_URL}' target='_self'>
-            <button style='background-color:#FFD700; color:black; font-size: 1.2rem; padding: 0.7rem 1.5rem; border-radius: 10px; font-weight: bold; border:none; cursor:pointer;'>
-                🚀 Launch Dashboard
-            </button>
-        </a>
-    </div>
-""", unsafe_allow_html=True)
+    # ---- BLOG / INSIGHT TEASER ----
+    st.markdown("---")
+    st.markdown("## 📚 Latest from the Ryxon Blog")
+    st.info("Coming Soon: 'Top 5 Ways Risk Desks Lose Money & How Ryxon Prevents It'")
 
-# Alternative Streamlit button (works better in some cases)
-# if st.button("🚀 Launch Dashboard", type="primary"):
-#     st.switch_page("streamlit_app_master.py")  # If you're using multi-page app
-
-# ---- FEATURE HIGHLIGHTS ----
-st.markdown("## 🔍 Features You'll Love")
-st.markdown("""
-<ul style="font-size: 1.1rem; line-height: 1.6;">
-    <li>📊 <strong>Real-time MTM & PnL Tracking</strong> – Upload trades and instantly view live MTM values</li>
-    <li>🛡️ <strong>Value at Risk (VaR)</strong> – Parametric & Historical VaR with confidence control</li>
-    <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
-    <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
-    <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
-</ul>
-""", unsafe_allow_html=True)
-
-# ---- BLOG / INSIGHT TEASER ----
-st.markdown("---")
-st.markdown("## 📚 Latest from the Ryxon Blog")
-st.info("Coming Soon: 'Top 5 Ways Risk Desks Lose Money & How Ryxon Prevents It'")
+else:
+    # ---- DASHBOARD CONTENT ----
+    # Import your dashboard code here or include it directly
+    import streamlit as st
+    import pandas as pd
+    import numpy as np
+    
+    st.title("📊 Ryxon Risk Dashboard")
+    
+    # Add your full dashboard implementation here
+    uploaded_file = st.file_uploader("Upload your trade file", type=["csv", "xlsx"])
+    
+    if uploaded_file:
+        # Process file and show dashboard
+        df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
+        st.dataframe(df)
+        
+        # Add back button
+        if st.button("← Back to Home"):
+            st.session_state.show_dashboard = False
+            st.rerun()
 
 # ---- FOOTER ----
 st.markdown("---")
