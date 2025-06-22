@@ -1,126 +1,122 @@
 import streamlit as st
-from streamlit_option_menu import option_menu
 from PIL import Image
+import base64
 
-st.set_page_config(page_title="Ryxon - Risk Intelligence for Traders", layout="wide")
+# --- Page Configuration ---
+st.set_page_config(page_title="Ryxon – Market Risk Intelligence", layout="wide")
 
 # --- Load Logo ---
-logo = Image.open("ryxon_logo.png")  # You can upload logo in your repo or locally
+logo = Image.open("ryxon_logo.png")
 
-# --- Sidebar Navigation ---
-with st.sidebar:
-    st.image(logo, width=180)
-    selected = option_menu(
-        menu_title="Ryxon Navigation",
-        options=["Home", "Features", "Pricing", "Blog", "Contact"],
-        icons=["house", "bar-chart", "tags", "file-earmark-text", "envelope"],
-        menu_icon="cast",
-        default_index=0,
-        styles={
-            "container": {"padding": "5!important", "background-color": "#f8f9fa"},
-            "icon": {"color": "#007bff", "font-size": "18px"},
-            "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "--hover-color": "#dbeafe"},
-            "nav-link-selected": {"background-color": "#1d4ed8", "color": "white"},
+# --- Styling ---
+st.markdown("""
+    <style>
+        .main-title {
+            font-size: 3.2em;
+            font-weight: bold;
+            color: #5A189A;
         }
-    )
+        .subtitle {
+            font-size: 1.3em;
+            color: #555;
+        }
+        .section-title {
+            font-size: 2em;
+            font-weight: 600;
+            margin-top: 1em;
+            color: #3A0CA3;
+        }
+        .pricing-box {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 1.5em;
+            margin: 0.5em;
+            background-color: #fdfbff;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# --- Home Page ---
-if selected == "Home":
+# --- Hero Section ---
+col1, col2 = st.columns([1, 4])
+with col1:
+    st.image(logo, width=120)
+with col2:
+    st.markdown("<div class='main-title'>Ryxon Technologies</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>The Edge of Market Risk Intelligence – Designed for Modern Traders</div>", unsafe_allow_html=True)
+
+st.markdown("---")
+
+# --- Features ---
+st.markdown("<div class='section-title'>\U0001F4A1 Features</div>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.success("\n**MTM & Daily PnL**\n\nTrack real-time mark-to-market and position-wise realized/unrealized profits.")
+with col2:
+    st.info("\n**VaR & Risk Modeling**\n\nBuilt-in Historical, Parametric, and Monte Carlo VaR methods.")
+with col3:
+    st.warning("\n**Scenario & Stress Testing**\n\nTest portfolio against real-world market shocks.")
+
+# --- Pricing ---
+st.markdown("<div class='section-title'>\U0001F4B0 Pricing</div>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
+with col1:
     st.markdown("""
-        <h1 style='color:#1d4ed8;'>Ryxon – The Edge of Trading Risk Intelligence</h1>
-        <h3 style='color:#374151;'>Built for professional traders, risk managers, and commodity hedgers</h3>
-        <p style='font-size:18px;'>
-        Ryxon is your intelligent command center for real-time risk analytics, mark-to-market, VaR, and more. Whether you trade futures, options, or physicals, we give you control and clarity.
-        </p>
+        <div class='pricing-box'>
+        <h4>Free</h4>
+        <p>Ideal for learning & testing</p>
+        <ul>
+            <li>Basic Dashboard</li>
+            <li>Upload XLSX Trades</li>
+            <li>Limited Reports</li>
+        </ul>
+        <strong>$0/month</strong>
+        </div>
     """, unsafe_allow_html=True)
 
-    st.markdown("---")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown("""
-        <div style='background-color:#eff6ff; padding:20px; border-radius:10px;'>
-        <h4 style='color:#1e3a8a;'>📊 MTM & Exposure</h4>
-        Real-time position MTM, book-to-market and exposure calculations across instruments.
+with col2:
+    st.markdown("""
+        <div class='pricing-box'>
+        <h4>Pro</h4>
+        <p>For serious traders</p>
+        <ul>
+            <li>Advanced Risk Models</li>
+            <li>Historical VaR, MC Sim</li>
+            <li>Exportable Reports</li>
+        </ul>
+        <strong>$29/month</strong>
         </div>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-    with col2:
-        st.markdown("""
-        <div style='background-color:#fef9c3; padding:20px; border-radius:10px;'>
-        <h4 style='color:#92400e;'>📈 VaR & Scenario</h4>
-        Historical, Monte Carlo and Parametric VaR with stress scenarios and thresholds.
+with col3:
+    st.markdown("""
+        <div class='pricing-box'>
+        <h4>Enterprise</h4>
+        <p>Team-wide access</p>
+        <ul>
+            <li>All Pro Features</li>
+            <li>Multi-user Support</li>
+            <li>Custom Alerts & Support</li>
+        </ul>
+        <strong>Contact Us</strong>
         </div>
-        """, unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-    with col3:
-        st.markdown("""
-        <div style='background-color:#dcfce7; padding:20px; border-radius:10px;'>
-        <h4 style='color:#065f46;'>💹 Realized PnL</h4>
-        Dynamic profit & loss tabulation with hedge mapping and lifecycle analytics.
-        </div>
-        """, unsafe_allow_html=True)
+# --- Blog/Insight ---
+st.markdown("<div class='section-title'>\U0001F4DA Blog & Insights</div>", unsafe_allow_html=True)
+st.info("""
+**June 2025 – Why VaR Still Matters**
+Explore how Value-at-Risk helps commodity and equity traders navigate volatile markets.
 
-    st.markdown("---")
-    st.markdown("<center><a href='/streamlit_app_master' style='text-decoration:none;'><button style='background-color:#1d4ed8; color:white; padding:10px 30px; border:none; border-radius:5px; font-size:16px;'>Launch Dashboard</button></a></center>", unsafe_allow_html=True)
+**May 2025 – Top 5 Stress Test Cases for 2025**
+From crude collapse to currency shocks – test your portfolio resilience.
 
-# --- Features Page ---
-elif selected == "Features":
-    st.markdown("<h2 style='color:#1d4ed8;'>Features</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    - Trade Upload & Auto-MTM
-    - Multi-Commodity Coverage
-    - VaR Engine: Historical / Monte Carlo / Parametric
-    - Realized & Unrealized PnL Tracking
-    - Options Lifecycle & Hedge Mapping
-    - Intercompany & Virtual Hedging
-    - Excel Integration & API Push
-    """)
+**April 2025 – The Rise of Ryxon**
+How we're redefining risk management in the trading world.
+""")
 
-# --- Pricing Page ---
-elif selected == "Pricing":
-    st.markdown("<h2 style='color:#1d4ed8;'>Pricing Plans</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    | Plan       | Monthly | Features |
-    |------------|---------|----------|
-    | Starter    | ₹ 999   | Basic MTM + PnL |
-    | Pro        | ₹ 2499  | Full Risk Suite + Excel Upload |
-    | Enterprise | Custom | API + On-prem Integration + Support |
-    """)
-
-# --- Blog Page ---
-elif selected == "Blog":
-    st.markdown("<h2 style='color:#1d4ed8;'>Blog & Case Studies</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    **1. How Risk Analytics Saves Millions in Hedging Errors**  
-    Learn how Ryxon helped a trading desk cut MTM losses using real-time alerts.
-
-    **2. The Evolution of CTRM Risk Platforms**  
-    Where traditional ERPs fail, modern risk intelligence tools rise.
-
-    **3. VaR: Historical vs Monte Carlo – What's Best?**  
-    Deep dive into use cases with sample code and results.
-    """)
-
-# --- Contact Page ---
-elif selected == "Contact":
-    st.markdown("<h2 style='color:#1d4ed8;'>Contact Us</h2>", unsafe_allow_html=True)
-    st.markdown("""
-    Have questions or need a custom demo?
-
-    📧 Email: support@ryxonrisk.com  
-    📞 Phone: +91-90000-12345  
-    🌐 Website: www.ryxonrisk.com
-    """)
-
-    st.text_input("Your Name")
-    st.text_input("Your Email")
-    st.text_area("Your Message")
-    st.button("Send Message")
-
-# --- Footer ---
-st.markdown("""
-    <hr>
-    <center style='color:#6b7280;'>© 2025 Ryxon by djk — Markets from the desk of a trader.</center>
-""", unsafe_allow_html=True)
+# --- Call to Action ---
+st.markdown("---")
+st.markdown("<div class='section-title'>\U0001F680 Ready to Take Control of Risk?</div>", unsafe_allow_html=True)
+st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
+if st.button("Launch Dashboard"):
+    st.switch_page("streamlit_app.py")
