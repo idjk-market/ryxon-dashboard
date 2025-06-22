@@ -7,30 +7,64 @@ import plotly.express as px
 st.set_page_config(page_title="Ryxon Risk Intelligence Dashboard", layout="wide")
 st.title("📊 Ryxon – The Edge of Trading Risk Intelligence")
 
-# --- Fallback Z-Score Calculation (if scipy not available) ---
+# --- Improved Z-Score Calculation ---
 def calculate_z_score(confidence):
     """
-    Calculate z-score for given confidence level
-    Uses scipy if available, otherwise uses approximation
+    Enhanced z-score calculation with better approximation
     """
     try:
         from scipy.stats import norm
         return norm.ppf(confidence / 100)
     except ImportError:
-        # Approximation if scipy not available
-        st.warning("⚠️ SciPy not installed - using z-score approximation")
+        # More accurate approximation without scipy
         p = confidence / 100
         if p <= 0 or p >= 1:
             return float('nan')
-        t = np.sqrt(-2.0 * np.log(min(p, 1-p)))
-        c0 = 2.515517
-        c1 = 0.802853
-        c2 = 0.010328
-        d1 = 1.432788
-        d2 = 0.189269
-        d3 = 0.001308
-        x = t - ((c0 + c1*t + c2*t**2) / (1 + d1*t + d2*t**2 + d3*t**3))
-        return -x if p < 0.5 else x
+        
+        # Coefficients for the approximation
+        a1 = -3.969683028665376e+01
+        a2 = 2.209460984245205e+02
+        a3 = -2.759285104469687e+02
+        a4 = 1.383577518672690e+02
+        a5 = -3.066479806614716e+01
+        a6 = 2.506628277459239e+00
+        
+        b1 = -5.447609879822406e+01
+        b2 = 1.615858368580409e+02
+        b3 = -1.556989798598866e+02
+        b4 = 6.680131188771972e+01
+        b5 = -1.328068155288572e+01
+        
+        c1 = -7.784894002430293e-03
+        c2 = -3.223964580411365e-01
+        c3 = -2.400758277161838e+00
+        c4 = -2.549732539343734e+00
+        c5 = 4.374664141464968e+00
+        c6 = 2.938163982698783e+00
+        
+        d1 = 7.784695709041462e-03
+        d2 = 3.224671290700398e-01
+        d3 = 2.445134137142996e+00
+        d4 = 3.754408661907416e+00
+        
+        # Define breakpoints
+        p_low = 0.02425
+        p_high = 1 - p_low
+        
+        if p < p_low:
+            q = np.sqrt(-2*np.log(p))
+            x = (((((c1*q+c2)*q+c3)*q+c4)*q+c5)*q+c6
+            x = x / ((((d1*q+d2)*q+d3)*q+d4)
+        elif p <= p_high:
+            q = p - 0.5
+            r = q*q
+            x = (((((a1*r+a2)*r+a3)*r+a4)*r+a5)*r+a6)*q
+            x = x / (((((b1*r+b2)*r+b3)*r+b4)*r+b5)
+        else:
+            q = np.sqrt(-2*np.log(1-p))
+            x = -(((((c1*q+c2)*q+c3)*q+c4)*q+c5)*q+c6)
+            x = x / ((((d1*q+d2)*q+d3)*q+d4))
+        return x
 
 # --- File Upload ---
 file = st.file_uploader("📤 Upload Trade Data File (.csv or .xlsx)", type=["csv", "xlsx"])
@@ -47,7 +81,10 @@ if file:
         if "Trade Date" in df.columns:
             df["Trade Date"] = pd.to_datetime(df["Trade Date"])
         
-        # --- Dynamic Table Display with Improved Filters ---
+        # Standardize column names (handle case sensitivity)
+        df.columns = [col.strip().title() for col in df.columns]
+        
+        # --- Enhanced Filtering System ---
         st.markdown("### 📄 Filtered Trade Data")
         
         # Create filter UI in sidebar
@@ -58,23 +95,30 @@ if file:
         
         # Create dynamic filters for each column
         for col in filtered_df.columns:
-            unique_values = filtered_df[col].unique()
+            unique_values = filtered_df[col].dropna().unique()
             
-            # For categorical columns with limited unique values
+            # For categorical columns
             if filtered_df[col].dtype == 'object' or len(unique_values) < 20:
+                # Clean string values for better matching
+                if filtered_df[col].dtype == 'object':
+                    filtered_df[col] = filtered_df[col].astype(str).str.strip().str.title()
+                    unique_values = filtered_df[col].dropna().unique()
+                
+                # Create multi-select dropdown
                 selected = st.sidebar.multiselect(
                     f"Filter {col}",
                     options=sorted(unique_values),
                     default=sorted(unique_values),
                     key=f"filter_{col}"
                 )
-                filtered_df = filtered_df[filtered_df[col].isin(selected)]
+                if selected:  # Only filter if selections were made
+                    filtered_df = filtered_df[filtered_df[col].isin(selected)]
             
             # For numeric columns
             elif pd.api.types.is_numeric_dtype(filtered_df[col]):
                 min_val = float(filtered_df[col].min())
                 max_val = float(filtered_df[col].max())
-                step = (max_val - min_val) / 100
+                step = (max_val - min_val) / 100 if (max_val - min_val) > 0 else 0.01
                 val_range = st.sidebar.slider(
                     f"Range for {col}",
                     min_val, max_val, (min_val, max_val),
@@ -86,8 +130,17 @@ if file:
                     (filtered_df[col] <= val_range[1])
                 ]
         
-        # Display filtered data
-        st.dataframe(filtered_df, use_container_width=True, hide_index=True)
+        # Display filtered data with better formatting
+        st.dataframe(
+            filtered_df.style.format({
+                'Quantity': '{:.0f}',
+                'Book Price': '{:.2f}',
+                'Market Price': '{:.2f}',
+                'MTM': '{:.2f}'
+            }),
+            use_container_width=True,
+            height=min(400, 35 * (len(filtered_df) + 1))
+        )
 
         # --- MTM Calculation Section ---
         with st.expander("📘 MTM Calculation Logic", expanded=False):
@@ -115,8 +168,17 @@ if file:
         # --- PnL Section ---
         with st.expander("📙 Realized & Unrealized PnL", expanded=False):
             if "Trade Action" in df.columns and "MTM" in df.columns:
-                df["Realized PnL"] = np.where(df["Trade Action"].str.lower() == "sell", df["MTM"], 0)
-                df["Unrealized PnL"] = np.where(df["Trade Action"].str.lower() == "buy", df["MTM"], 0)
+                # Case-insensitive trade action matching
+                df["Realized PnL"] = np.where(
+                    df["Trade Action"].str.strip().str.lower() == "sell", 
+                    df["MTM"], 
+                    0
+                )
+                df["Unrealized PnL"] = np.where(
+                    df["Trade Action"].str.strip().str.lower() == "buy", 
+                    df["MTM"], 
+                    0
+                )
                 
                 # Display PnL summary
                 col1, col2 = st.columns(2)
@@ -142,7 +204,7 @@ if file:
                 help="The probability level for VaR calculation (e.g., 95% means 5% chance of exceeding the VaR)"
             )
             
-            # Calculate z-score using our function
+            # Calculate z-score using our improved function
             z = calculate_z_score(confidence)
             
             if "MTM" in df.columns and "Trade Date" in df.columns:
@@ -165,8 +227,12 @@ if file:
                     )
                 with col2:
                     if len(df) > 0:
-                        st.warning(f"⚠️ Latest 1-Day VaR: ₹ {df['1-Day VaR'].iloc[-1]:,.2f} at {confidence}% confidence")
-                        st.info(f"Z-Score used: {z:.4f}")
+                        latest_var = df['1-Day VaR'].iloc[-1]
+                        st.metric(
+                            f"Latest 1-Day VaR ({confidence}% confidence)",
+                            f"₹ {latest_var:,.2f}",
+                            help=f"Calculated using z-score: {z:.4f}"
+                        )
                     else:
                         st.warning("Insufficient data for VaR calculation")
             else:
@@ -222,12 +288,6 @@ if file:
         else:
             st.warning("No PnL data available for visualization")
 
-        # --- Additional Visualizations ---
-        st.markdown("#### 📈 MTM Distribution")
-        if "MTM" in df.columns:
-            fig = px.histogram(df, x="MTM", nbins=50, title="MTM Value Distribution")
-            st.plotly_chart(fig, use_container_width=True)
-
         st.success("✅ Risk dashboard successfully generated")
         
     except Exception as e:
@@ -239,7 +299,7 @@ with st.expander("ℹ️ Setup Instructions", expanded=False):
     st.markdown("""
     ### Deployment Requirements
     
-    Ensure your environment has these Python packages installed:
+    For optimal performance, install these Python packages:
     
     ```requirements.txt
     streamlit
@@ -249,5 +309,5 @@ with st.expander("ℹ️ Setup Instructions", expanded=False):
     scipy
     ```
     
-    The app will work without scipy but with slightly less accurate VaR calculations.
+    The app includes a fallback z-score calculation if scipy is not available.
     """)
