@@ -2,121 +2,132 @@ import streamlit as st
 from PIL import Image
 import base64
 
-# --- Page Configuration ---
-st.set_page_config(page_title="Ryxon – Market Risk Intelligence", layout="wide")
+# === PAGE CONFIG ===
+st.set_page_config(
+    page_title="Ryxon – Market Risk Intelligence",
+    page_icon="🚀",
+    layout="wide"
+)
 
-# --- Load Logo ---
-logo = Image.open("ryxon_logo.png")
+# === LOAD LOGO ===
+logo_path = "ryxon_logo.png"
+try:
+    logo = Image.open(logo_path)
+    st.image(logo, width=200)
+except FileNotFoundError:
+    st.warning("Logo not found. Please upload 'ryxon_logo.png' in the same directory.")
 
-# --- Styling ---
+# === CUSTOM STYLING ===
 st.markdown("""
-    <style>
-        .main-title {
-            font-size: 3.2em;
-            font-weight: bold;
-            color: #5A189A;
-        }
-        .subtitle {
-            font-size: 1.3em;
-            color: #555;
-        }
-        .section-title {
-            font-size: 2em;
-            font-weight: 600;
-            margin-top: 1em;
-            color: #3A0CA3;
-        }
-        .pricing-box {
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            padding: 1.5em;
-            margin: 0.5em;
-            background-color: #fdfbff;
-        }
-    </style>
+<style>
+    .main-title {
+        font-size: 42px;
+        font-weight: 700;
+        color: #4B0082;
+    }
+    .subsection {
+        background-color: #f0f2f6;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+    }
+    .cta {
+        background-color: #d1f5d3;
+        padding: 10px 20px;
+        border-radius: 10px;
+        color: #003300;
+        font-weight: bold;
+        font-size: 18px;
+    }
+    .feature-card {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 10px;
+        box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.1);
+    }
+</style>
 """, unsafe_allow_html=True)
 
-# --- Hero Section ---
-col1, col2 = st.columns([1, 4])
-with col1:
-    st.image(logo, width=120)
-with col2:
-    st.markdown("<div class='main-title'>Ryxon Technologies</div>", unsafe_allow_html=True)
-    st.markdown("<div class='subtitle'>The Edge of Market Risk Intelligence – Designed for Modern Traders</div>", unsafe_allow_html=True)
+# === MAIN TITLE ===
+st.markdown("<h1 class='main-title'>Welcome to Ryxon – The Edge of Trading Risk Intelligence</h1>", unsafe_allow_html=True)
+
+# === CTA ===
+st.markdown("""
+<div class='cta'>
+Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown("---")
 
-# --- Features ---
-st.markdown("<div class='section-title'>\U0001F4A1 Features</div>", unsafe_allow_html=True)
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.success("\n**MTM & Daily PnL**\n\nTrack real-time mark-to-market and position-wise realized/unrealized profits.")
-with col2:
-    st.info("\n**VaR & Risk Modeling**\n\nBuilt-in Historical, Parametric, and Monte Carlo VaR methods.")
-with col3:
-    st.warning("\n**Scenario & Stress Testing**\n\nTest portfolio against real-world market shocks.")
-
-# --- Pricing ---
-st.markdown("<div class='section-title'>\U0001F4B0 Pricing</div>", unsafe_allow_html=True)
-col1, col2, col3 = st.columns(3)
-with col1:
+# === FEATURES ===
+st.markdown("<h2>Core Features</h2>", unsafe_allow_html=True)
+cols = st.columns(3)
+with cols[0]:
     st.markdown("""
-        <div class='pricing-box'>
-        <h4>Free</h4>
-        <p>Ideal for learning & testing</p>
-        <ul>
-            <li>Basic Dashboard</li>
-            <li>Upload XLSX Trades</li>
-            <li>Limited Reports</li>
-        </ul>
-        <strong>$0/month</strong>
-        </div>
+    <div class='feature-card'>
+    📈 <strong>Real-Time MTM & PnL</strong><br>
+    Live mark-to-market, realized and unrealized profit/loss view at trade level.
+    </div>
     """, unsafe_allow_html=True)
 
-with col2:
+with cols[1]:
     st.markdown("""
-        <div class='pricing-box'>
-        <h4>Pro</h4>
-        <p>For serious traders</p>
-        <ul>
-            <li>Advanced Risk Models</li>
-            <li>Historical VaR, MC Sim</li>
-            <li>Exportable Reports</li>
-        </ul>
-        <strong>$29/month</strong>
-        </div>
+    <div class='feature-card'>
+    🌌 <strong>Dynamic Value at Risk</strong><br>
+    Historical & Monte Carlo VaR fully integrated with your exposure.
+    </div>
     """, unsafe_allow_html=True)
 
-with col3:
+with cols[2]:
     st.markdown("""
-        <div class='pricing-box'>
-        <h4>Enterprise</h4>
-        <p>Team-wide access</p>
-        <ul>
-            <li>All Pro Features</li>
-            <li>Multi-user Support</li>
-            <li>Custom Alerts & Support</li>
-        </ul>
-        <strong>Contact Us</strong>
-        </div>
+    <div class='feature-card'>
+    🪨 <strong>Stress & Scenario Testing</strong><br>
+    Built-in dashboards to model shocks, spikes, volatility swings.
+    </div>
     """, unsafe_allow_html=True)
 
-# --- Blog/Insight ---
-st.markdown("<div class='section-title'>\U0001F4DA Blog & Insights</div>", unsafe_allow_html=True)
-st.info("""
-**June 2025 – Why VaR Still Matters**
-Explore how Value-at-Risk helps commodity and equity traders navigate volatile markets.
+# === PRICING ===
+st.markdown("<h2>Pricing</h2>", unsafe_allow_html=True)
+cols = st.columns(3)
+with cols[0]:
+    st.markdown("""
+    <div class='subsection'>
+    💸 <strong>Free Tier</strong><br>
+    Access MTM + PnL + 10 trades per day.<br><br>
+    <em>Perfect for small traders.</em>
+    </div>
+    """, unsafe_allow_html=True)
+with cols[1]:
+    st.markdown("""
+    <div class='subsection'>
+    🤝 <strong>Professional</strong><br>
+    Everything + 100 trades/day + Stress Testing + Download.<br><br>
+    <em>For hedge desks, commodity traders.</em>
+    </div>
+    """, unsafe_allow_html=True)
+with cols[2]:
+    st.markdown("""
+    <div class='subsection'>
+    📊 <strong>Enterprise</strong><br>
+    Unlimited use, custom models, API integration.<br><br>
+    <em>Risk desks & institutions.</em>
+    </div>
+    """, unsafe_allow_html=True)
 
-**May 2025 – Top 5 Stress Test Cases for 2025**
-From crude collapse to currency shocks – test your portfolio resilience.
+# === BLOG ===
+st.markdown("<h2>Latest Blog Highlights</h2>", unsafe_allow_html=True)
+st.markdown("""
+<ul>
+<li>📊 <strong>How Ryxon Helps Commodity Desks Hedge Better</strong></li>
+<li>📈 <strong>Top 3 Ways to Use VaR in Intraday Trading</strong></li>
+<li>🪟 <strong>Explained: Realized vs Unrealized PnL in F&O</strong></li>
+</ul>
+""", unsafe_allow_html=True)
 
-**April 2025 – The Rise of Ryxon**
-How we're redefining risk management in the trading world.
-""")
-
-# --- Call to Action ---
-st.markdown("---")
-st.markdown("<div class='section-title'>\U0001F680 Ready to Take Control of Risk?</div>", unsafe_allow_html=True)
-st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
-if st.button("Launch Dashboard"):
-    st.switch_page("streamlit_app.py")
+# === CTA BUTTON ===
+st.markdown("<h2>Ready to Take Control of Risk?</h2>", unsafe_allow_html=True)
+launch = st.button("Launch Dashboard")
+if launch:
+    st.success("Opening dashboard app...")
+    st.markdown("<meta http-equiv='refresh' content='0; url=https://ryxon-dashboard-4dwgjwhdscn6hhsrjc63tj.streamlit.app/'>", unsafe_allow_html=True)
