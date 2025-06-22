@@ -1,90 +1,168 @@
 import streamlit as st
-import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
+from datetime import datetime
 
-st.set_page_config(page_title="Ryxon Risk Dashboard", layout="wide")
+def calculate_historical_var(df, mtm_column='MTM', trade_column=None, trade_filter=None, confidence_level=95):
+    """
+    Calculate Historical Value at Risk with trade filtering
+    Args:
+        df: Input DataFrame
+        mtm_column: Column with MTM values
+        trade_column: Column to filter trades (optional)
+        trade_filter: Specific trade to filter by (optional)
+        confidence_level: VaR confidence level
+    Returns:
+        Historical VaR value and filtered DataFrame
+    """
+    # Create a copy to avoid modifying original
+    working_df = df.copy()
+    
+    # Apply trade filter if specified
+    if trade_column and trade_filter:
+        if trade_column not in working_df.columns:
+            raise ValueError(f"Trade column '{trade_column}' not found")
+        working_df = working_df[working_df[trade_column] == trade_filter]
+    
+    # Validate MTM column
+    if mtm_column not in working_df.columns:
+        raise ValueError(f"MTM column '{mtm_column}' not found")
+    
+    # Clean data
+    working_df[mtm_column] = pd.to_numeric(working_df[mtm_column], errors='coerce').fillna(0)
+    
+    # Calculate returns
+    working_df['Daily_Return'] = working_df[mtm_column].pct_change().fillna(0)
+    
+    # Calculate VaR
+    if len(working_df) < 2:
+        return None, working_df
+    
+    sorted_returns = np.sort(working_df['Daily_Return'].dropna())
+    var_percentile = 100 - confidence_level
+    historical_var = -np.percentile(sorted_returns, var_percentile) * working_df[mtm_column].sum()
+    
+    return historical_var, working_df
 
-# File upload
-st.sidebar.title("📁 Upload Trade Excel")
-uploaded_file = st.sidebar.file_uploader("Upload your trade file (.xlsx)", type=["xlsx"])
-
-@st.cache_data
-def load_data(file):
-    df = pd.read_excel(file)
-    df['MTM'] = pd.to_numeric(df['MTM'], errors='coerce').fillna(0)
-    return df
-
-if uploaded_file:
-    df = load_data(uploaded_file)
-
-    # -------------------- Filter UI --------------------
-    st.title("📊 Trade Table with Filters")
-    with st.expander("📄 Filtered Trade Data", expanded=True):
-        filters = {}
-        cols = st.columns(len(df.columns))
-        for i, column in enumerate(df.columns):
-            unique_vals = ['All'] + sorted(df[column].dropna().astype(str).unique().tolist())
-            filters[column] = cols[i].selectbox(f"Filter: {column}", unique_vals)
-
-        df_filtered = df.copy()
-        for column, selected_value in filters.items():
-            if selected_value != 'All':
-                df_filtered = df_filtered[df_filtered[column].astype(str) == selected_value]
-
-        st.dataframe(df_filtered, use_container_width=True)
-
-    # -------------------- MTM Logic --------------------
-    with st.expander("📘 MTM Calculation Logic", expanded=False):
-        st.write("Mark-to-Market = (Market Price - Trade Price) * Quantity")
-        st.write(f"Total MTM: ₹ {df_filtered['MTM'].sum():,.2f}")
-
-    # -------------------- Realized & Unrealized PnL --------------------
-    with st.expander("🧾 Realized & Unrealized PnL", expanded=False):
-        realized = df_filtered[df_filtered['Status'] == 'SquaredOff']['MTM'].sum()
-        unrealized = df_filtered[df_filtered['Status'] != 'SquaredOff']['MTM'].sum()
-        st.metric("Realized PnL", f"₹ {realized:,.2f}")
-        st.metric("Unrealized PnL", f"₹ {unrealized:,.2f}")
-
-    # -------------------- Value at Risk (VaR) --------------------
-    with st.expander("📉 Value at Risk (VaR)", expanded=False):
-        confidence = st.slider("Select Confidence Level (%)", 90, 99, 95)
-        pnl_series = df_filtered['MTM'].dropna()
-        if not pnl_series.empty:
-            var_value = -np.percentile(pnl_series, 100 - confidence)
-            st.metric(label=f"VaR ({confidence}%)", value=f"₹ {abs(var_value):,.2f}")
-        else:
-            st.warning("MTM data not available for VaR calculation.")
-
-    # -------------------- Historical VaR --------------------
+def show_historical_var_module(df):
+    """Streamlit UI component with trade filtering"""
     with st.expander("📊 Historical Value at Risk (Hist VaR)", expanded=False):
-        st.markdown("This metric shows the potential maximum loss based on historical MTM variations.")
-        df_filtered['MTM'] = pd.to_numeric(df_filtered['MTM'], errors='coerce').fillna(0)
-        df_filtered['Daily_Return'] = df_filtered['MTM'].pct_change().fillna(0)
+        st.markdown("""
+        **Historical VaR** with trade filtering capability.
+        - Filter by specific trade before calculation
+        - Visualize results for selected subset
+        """)
+        
+        # Configuration
+        cols = st.columns(3)
+        with cols[0]:
+            mtm_col = st.selectbox(
+                "MTM Column",
+                options=df.columns,
+                index=df.columns.get_loc('MTM') if 'MTM' in df.columns else 0
+            )
+        with cols[1]:
+            # Only show trade filter if trade column exists
+            trade_col = None
+            if any('trade' in col.lower() for col in df.columns):
+                trade_col = st.selectbox(
+                    "Trade Column (Optional)",
+                    options=['None'] + [col for col in df.columns if 'trade' in col.lower()],
+                    index=0
+                )
+                trade_col = None if trade_col == 'None' else trade_col
+        with cols[2]:
+            confidence = st.slider(
+                "Confidence Level",
+                min_value=90,
+                max_value=99,
+                value=95,
+                step=1,
+                format="%d%%"
+            )
+        
+        # Trade filter selection
+        trade_filter = None
+        if trade_col:
+            trade_options = df[trade_col].unique()
+            trade_filter = st.selectbox(
+                f"Select {trade_col} to filter",
+                options=['All'] + sorted(list(trade_options)),
+                index=0
+            )
+            if trade_filter == 'All':
+                trade_filter = None
+        
+        # Calculate and display results
+        try:
+            hist_var, filtered_df = calculate_historical_var(
+                df,
+                mtm_column=mtm_col,
+                trade_column=trade_col,
+                trade_filter=trade_filter,
+                confidence_level=confidence
+            )
+            
+            if hist_var is not None:
+                # Main metric
+                st.metric(
+                    label=f"Historical VaR ({confidence}%)",
+                    value=f"₹ {abs(hist_var):,.2f}",
+                    delta=f"{hist_var/filtered_df[mtm_col].sum()*100:.2f}% of portfolio",
+                    help=f"Maximum expected loss with {confidence}% confidence"
+                )
+                
+                # Summary stats
+                with st.expander("View Details"):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.write(f"**Period Analyzed:** {len(filtered_df)} days")
+                        st.write(f"**Portfolio Value:** ₹ {filtered_df[mtm_col].sum():,.2f}")
+                    with col2:
+                        st.write(f"**Filter Applied:** {trade_col}={trade_filter if trade_filter else 'None'}")
+                        st.write(f"**Data Points:** {len(filtered_df['Daily_Return'].dropna())}")
+                    
+                    # Plot returns distribution
+                    import plotly.express as px
+                    fig = px.histogram(
+                        filtered_df,
+                        x='Daily_Return',
+                        nbins=50,
+                        title="Distribution of Daily Returns",
+                        labels={'Daily_Return': 'Daily Return (%)'}
+                    )
+                    fig.add_vline(
+                        x=-abs(hist_var)/filtered_df[mtm_col].sum(),
+                        line_dash="dash",
+                        line_color="red",
+                        annotation_text=f"VaR {confidence}%",
+                        annotation_position="top left"
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.warning("Insufficient data points for calculation (need at least 2 valid observations)")
+                
+        except Exception as e:
+            st.error(f"Calculation error: {str(e)}")
 
-        if len(df_filtered) >= 2:
-            sorted_returns = np.sort(df_filtered['Daily_Return'].dropna())
-            hist_var = -np.percentile(sorted_returns, 100 - confidence) * df_filtered['MTM'].sum()
-
-            st.metric(label=f"Historical VaR ({confidence}%)",
-                      value=f"₹ {abs(hist_var):,.2f}",
-                      delta=f"{hist_var/df_filtered['MTM'].sum()*100:.2f}% of portfolio")
-
-            with st.expander("📈 Distribution Diagnostics"):
-                fig, ax = plt.subplots()
-                ax.hist(df_filtered['Daily_Return'], bins=50, alpha=0.7)
-                ax.axvline(x=-abs(hist_var)/df_filtered['MTM'].sum(), color='red', linestyle='--')
-                ax.set_title("Distribution of Daily Returns")
-                ax.set_xlabel("Daily Return")
-                ax.set_ylabel("Frequency")
-                st.pyplot(fig)
-        else:
-            st.warning("Not enough data points for Historical VaR calculation.")
-
-    # -------------------- Final Risk Summary --------------------
-    st.subheader("🧾 Final Risk Summary")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("📉 MTM", f"₹ {df_filtered['MTM'].sum():,.2f}")
-    col2.metric("📈 Realized PnL", f"₹ {realized:,.2f}")
-    col3.metric("📊 Unrealized PnL", f"₹ {unrealized:,.2f}")
-    col4.metric(f"📉 VaR ({confidence}%)", f"₹ {abs(var_value):,.2f}")
+# Example usage
+if __name__ == "__main__":
+    st.title("Advanced VaR Calculator with Trade Filtering")
+    
+    # Sample data with trade information
+    @st.cache_data
+    def load_sample_data():
+        np.random.seed(42)
+        dates = pd.date_range(end=datetime.today(), periods=100)
+        trades = np.random.choice(['Trade_A', 'Trade_B', 'Trade_C'], 100)
+        returns = np.random.normal(0.001, 0.02, 100)
+        mtm = 1000000 * (1 + returns).cumprod()
+        return pd.DataFrame({
+            'Date': dates,
+            'MTM': mtm,
+            'Trade_ID': trades,
+            'Trade_Type': np.random.choice(['Equity', 'Fixed Income', 'Commodity'], 100)
+        })
+    
+    data = load_sample_data()
+    show_historical_var_module(data)
