@@ -1,77 +1,94 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from st_aggrid import AgGrid, GridOptionsBuilder
 import plotly.express as px
-from scipy.stats import norm
+from st_aggrid import AgGrid, GridOptionsBuilder
 
-st.set_page_config(page_title="Ryxon Risk Dashboard", layout="wide")
-st.title("📊 Ryxon – Trading Risk Intelligence")
+# --- Page Setup ---
+st.set_page_config(page_title="Ryxon Risk Intelligence Dashboard", layout="wide")
+st.title("📊 Ryxon – The Edge of Trading Risk Intelligence")
+
+# --- Helper: Standardize and ensure required columns ---
+def clean_dataframe(df):
+    df.columns = [col.strip().title() for col in df.columns]
+    required_cols = ["Trade Id", "Commodity", "Instrument Type", "Trade Action", "Quantity", "Book Price", "Market Price", "Trade Date"]
+    for col in required_cols:
+        if col not in df.columns:
+            df[col] = np.nan
+    df["Trade Date"] = pd.to_datetime(df["Trade Date"], errors='coerce')
+    df["Quantity"] = pd.to_numeric(df["Quantity"], errors='coerce')
+    df["Book Price"] = pd.to_numeric(df["Book Price"], errors='coerce')
+    df["Market Price"] = pd.to_numeric(df["Market Price"], errors='coerce')
+    return df[required_cols]
 
 # --- File Upload ---
-file = st.file_uploader("📤 Upload Trade File (.csv/.xlsx)", type=["csv", "xlsx"])
+file = st.file_uploader("📤 Upload Trade Data File (.csv or .xlsx)", type=["csv", "xlsx"])
+
 if file:
-    df = pd.read_excel(file) if file.name.endswith("xlsx") else pd.read_csv(file)
-    df.columns = [c.strip().title() for c in df.columns]
+    try:
+        if file.name.endswith(".xlsx"):
+            df = pd.read_excel(file)
+        else:
+            df = pd.read_csv(file)
 
-    if "Trade Date" in df.columns:
-        df["Trade Date"] = pd.to_datetime(df["Trade Date"])
+        df = clean_dataframe(df)
 
-    # --- MTM Calculation ---
-    if all(col in df.columns for col in ["Book Price", "Market Price", "Quantity"]):
-        df["MTM"] = (df["Market Price"] - df["Book Price"]) * df["Quantity"]
+        st.markdown("### 📄 Filtered Trade Data (Search/Filter Any Column Below 👇)")
+        gb = GridOptionsBuilder.from_dataframe(df)
+        gb.configure_default_column(enableRowGroup=True, enablePivot=True, enableValue=True, editable=False, filter=True)
+        gb.configure_grid_options(domLayout='normal')
+        grid_options = gb.build()
+        AgGrid(df, gridOptions=grid_options, enable_enterprise_modules=True, height=400, fit_columns_on_grid_load=True)
 
-    # --- PnL ---
-    if "Trade Action" in df.columns and "MTM" in df.columns:
-        df["Realized PnL"] = np.where(df["Trade Action"].str.lower() == "sell", df["MTM"], 0)
-        df["Unrealized PnL"] = np.where(df["Trade Action"].str.lower() == "buy", df["MTM"], 0)
+        with st.expander("📘 MTM Calculation Logic", expanded=False):
+            df["MTM"] = (df["Market Price"] - df["Book Price"]) * df["Quantity"]
+            st.write("**Formula:** MTM = (Market Price - Book Price) × Quantity")
+            st.dataframe(df[["Trade Id", "Quantity", "Book Price", "Market Price", "MTM"]])
 
-    # --- VaR Calculation ---
-    confidence = st.slider("Confidence Level (%)", 90, 99, 95)
-    z = norm.ppf(confidence / 100)
-    if "Trade Date" in df.columns and "MTM" in df.columns:
-        df = df.sort_values("Trade Date")
-        df["Daily Return"] = df["MTM"].pct_change().fillna(0)
-        df["Rolling Std Dev"] = df["Daily Return"].rolling(window=10).std().fillna(0)
-        df["1-Day VaR"] = -1 * (df["Daily Return"].mean() - z * df["Rolling Std Dev"]) * df["MTM"].abs()
+        with st.expander("📙 Realized & Unrealized PnL", expanded=False):
+            df["Realized PnL"] = np.where(df["Trade Action"].str.lower() == "sell", df["MTM"], 0)
+            df["Unrealized PnL"] = np.where(df["Trade Action"].str.lower() == "buy", df["MTM"], 0)
+            st.dataframe(df[["Trade Id", "Trade Action", "MTM", "Realized PnL", "Unrealized PnL"]])
+            st.metric("Realized PnL", f"₹ {df['Realized PnL'].sum():,.2f}")
+            st.metric("Unrealized PnL", f"₹ {df['Unrealized PnL'].sum():,.2f}")
 
-    # --- Display Trade Data with Excel-style Filters ---
-    st.subheader("📋 Filtered Trade Data (Excel-style Column Filters)")
-    gb = GridOptionsBuilder.from_dataframe(df)
-    gb.configure_default_column(filter=True, editable=False, sortable=True, resizable=True)
-    gb.configure_pagination(enabled=True)
-    gridOptions = gb.build()
-    AgGrid(df, gridOptions=gridOptions, height=400, enable_enterprise_modules=True)
+        with st.expander("📕 Value at Risk (VaR)", expanded=False):
+            confidence = st.slider("Select Confidence Level (%)", min_value=90, max_value=99, value=95)
+            z = {90:1.28, 91:1.34, 92:1.41, 93:1.48, 94:1.55, 95:1.65, 96:1.75, 97:1.88, 98:2.05, 99:2.33}[confidence]
+            df = df.sort_values("Trade Date")
+            df["Daily Return"] = df["MTM"].pct_change().fillna(0)
+            df["Rolling Std Dev"] = df["Daily Return"].rolling(window=5).std().fillna(0)
+            df["1-Day VaR"] = -1 * (df["Daily Return"].mean() - z * df["Rolling Std Dev"]) * df["MTM"].abs()
+            st.dataframe(df[["Trade Id", "Daily Return", "Rolling Std Dev", "1-Day VaR"]])
+            st.metric(f"Latest 1-Day VaR ({confidence}% Confidence)", f"₹ {df['1-Day VaR'].iloc[-1]:,.2f}")
 
-    # --- Expanders: MTM ---
-    with st.expander("📘 MTM Breakdown"):
-        st.dataframe(df[["Trade ID", "Commodity", "Instrument Type", "Trade Action", 
-                         "Quantity", "Book Price", "Market Price", "MTM"]])
+        st.markdown("### 🧾 Final Risk Summary")
+        cols = st.columns(4)
+        summary = [
+            ("📉 MTM", "MTM"),
+            ("📈 Realized PnL", "Realized PnL"),
+            ("🧮 Unrealized PnL", "Unrealized PnL"),
+            (f"🔻 VaR ({confidence}%)", "1-Day VaR")
+        ]
+        for i, (label, colname) in enumerate(summary):
+            value = df[colname].iloc[-1] if "VaR" in colname else df[colname].sum()
+            cols[i].metric(label, f"₹ {value:,.2f}")
 
-    # --- Expanders: PnL ---
-    with st.expander("📙 Realized and Unrealized PnL"):
-        st.dataframe(df[["Trade ID", "Trade Action", "MTM", "Realized PnL", "Unrealized PnL"]])
+        with st.expander("📊 PnL Breakdown Chart"):
+            data = [
+                {"Metric": "MTM", "Value": df["MTM"].sum()},
+                {"Metric": "Realized PnL", "Value": df["Realized PnL"].sum()},
+                {"Metric": "Unrealized PnL", "Value": df["Unrealized PnL"].sum()}
+            ]
+            chart_df = pd.DataFrame(data)
+            chart_df["Type"] = chart_df["Value"].apply(lambda x: "Profit" if x >= 0 else "Loss")
+            fig = px.bar(chart_df, x="Metric", y="Value", color="Type", text="Value",
+                         color_discrete_map={"Profit": "green", "Loss": "red"})
+            st.plotly_chart(fig, use_container_width=True)
 
-    # --- Expanders: VaR ---
-    with st.expander("📕 Value at Risk (VaR)"):
-        st.dataframe(df[["Trade ID", "Daily Return", "Rolling Std Dev", "1-Day VaR"]])
-        st.metric(f"Latest 1-Day VaR ({confidence}%)", f"₹ {df['1-Day VaR'].iloc[-1]:,.2f}")
+        st.success("✅ Dashboard generated successfully.")
 
-    # --- Summary Metrics ---
-    st.subheader("📊 Summary Metrics")
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("MTM", f"₹ {df['MTM'].sum():,.2f}")
-    col2.metric("Realized PnL", f"₹ {df['Realized PnL'].sum():,.2f}")
-    col3.metric("Unrealized PnL", f"₹ {df['Unrealized PnL'].sum():,.2f}")
-    col4.metric(f"VaR ({confidence}%)", f"₹ {df['1-Day VaR'].iloc[-1]:,.2f}")
-
-    # --- PnL Breakdown Chart ---
-    pnl_df = pd.DataFrame({
-        "Metric": ["MTM", "Realized PnL", "Unrealized PnL"],
-        "Value": [df["MTM"].sum(), df["Realized PnL"].sum(), df["Unrealized PnL"].sum()]
-    })
-    fig = px.bar(pnl_df, x="Metric", y="Value", text="Value", title="PnL Components")
-    st.plotly_chart(fig, use_container_width=True)
-
+    except Exception as e:
+        st.error(f"❌ Error loading file: {e}")
 else:
-    st.info("Please upload a trade data file to get started.")
+    st.info("📥 Please upload a trade file to begin.")
