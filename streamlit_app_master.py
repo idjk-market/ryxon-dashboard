@@ -130,10 +130,11 @@ if uploaded_file:
         st.dataframe(df[['Trade ID', 'Realized PnL', 'Unrealized PnL']], use_container_width=True)
 
     with st.expander("📉 Value at Risk (VaR)", expanded=False):
-        var_confidence = st.slider("Confidence Level (%)", 90, 99, 95)
+        var_confidence = st.slider("Confidence Level (%)", 90, 99, 95, key="var_slider")
         var_result = calculate_var(df, var_confidence)
         st.metric(f"VaR ({var_confidence}%)", f"₹ {abs(var_result):,.2f}")
 
+    # Show advanced Historical VaR Module
     show_historical_var_module(df)
 
     with st.expander("📄 Final Risk Summary", expanded=True):
