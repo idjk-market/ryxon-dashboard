@@ -29,11 +29,11 @@ def calculate_pnl(df):
     df['Unrealized PnL'] = df['MTM'] - df['Realized PnL']
     return df
 
-def calculate_var(df, confidence_level=95):
-    df['Daily Return'] = df['MTM'].pct_change().fillna(0)
+def calculate_var(filtered_df, confidence_level=95):
+    filtered_df['Daily Return'] = filtered_df['MTM'].pct_change().fillna(0)
     sorted_returns = np.sort(df['Daily Return'].dropna())
     var_percentile = 100 - confidence_level
-    var_value = -np.percentile(sorted_returns, var_percentile) * df['MTM'].sum()
+    var_value = -np.percentile(sorted_returns, var_percentile) * filtered_df['MTM'].sum()
     return var_value
 
 def calculate_historical_var(df, mtm_column='MTM', trade_column=None, trade_filter=None, confidence_level=95):
@@ -53,7 +53,7 @@ def calculate_historical_var(df, mtm_column='MTM', trade_column=None, trade_filt
     historical_var = -np.percentile(sorted_returns, var_percentile) * working_df[mtm_column].sum()
     return historical_var, working_df
 
-def show_historical_var_module(df):
+def show_historical_var_module(filtered_df):
     with st.expander("📊 Historical Value at Risk (Hist VaR)", expanded=False):
         st.markdown("**Historical VaR** with trade filtering capability.")
         cols = st.columns(3)
@@ -114,6 +114,22 @@ def show_historical_var_module(df):
         except Exception as e:
             st.error(f"Calculation error: {str(e)}")
 
+
+def filter_dataframe(df):
+    filters = {}
+    cols = st.columns(len(df.columns))
+    for i, col in enumerate(df.columns):
+        if df[col].nunique() < 100 and (df[col].dtype == 'object' or df[col].dtype.name == 'category'):
+            options = df[col].dropna().unique().tolist()
+            options.sort()
+            selected = cols[i].multiselect(f"{col}", options=options, default=options)
+            filters[col] = selected
+    filtered_df = df.copy()
+    for col, selected in filters.items():
+        if selected:
+            filtered_df = filtered_df[filtered_df[col].isin(selected)]
+    return filtered_df
+
 if uploaded_file:
     df = load_excel(uploaded_file)
     df = calculate_mtm(df)
@@ -124,23 +140,23 @@ if uploaded_file:
 
     with st.expander("🧮 MTM Calculation Logic", expanded=False):
         st.write("MTM = (Market Price - Book Price) × Quantity")
-        st.dataframe(df[['Trade ID', 'Book Price', 'Market Price', 'Quantity', 'MTM']], use_container_width=True)
+        st.dataframe(filtered_df[['Trade ID', 'Book Price', 'Market Price', 'Quantity', 'MTM']], use_container_width=True)
 
     with st.expander("📈 Realized & Unrealized PnL", expanded=False):
-        st.dataframe(df[['Trade ID', 'Realized PnL', 'Unrealized PnL']], use_container_width=True)
+        st.dataframe(filtered_df[['Trade ID', 'Realized PnL', 'Unrealized PnL']], use_container_width=True)
 
     with st.expander("📉 Value at Risk (VaR)", expanded=False):
         var_confidence = st.slider("Confidence Level (%)", 90, 99, 95, key="var_slider")
-        var_result = calculate_var(df, var_confidence)
+        var_result = calculate_var(filtered_df, var_confidence)
         st.metric(f"VaR ({var_confidence}%)", f"₹ {abs(var_result):,.2f}")
 
     # Show advanced Historical VaR Module
-    show_historical_var_module(df)
+    show_historical_var_module(filtered_df)
 
     with st.expander("📄 Final Risk Summary", expanded=True):
         st.markdown("### 📑 Final Risk Summary")
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("📉 MTM", f"₹ {df['MTM'].sum():,.2f}")
-        col2.metric("🧾 Realized PnL", f"₹ {df['Realized PnL'].sum():,.2f}")
-        col3.metric("📈 Unrealized PnL", f"₹ {df['Unrealized PnL'].sum():,.2f}")
+        col1.metric("📉 MTM", f"₹ {filtered_df['MTM'].sum():,.2f}")
+        col2.metric("🧾 Realized PnL", f"₹ {filtered_df['Realized PnL'].sum():,.2f}")
+        col3.metric("📈 Unrealized PnL", f"₹ {filtered_df['Unrealized PnL'].sum():,.2f}")
         col4.metric(f"🔻 VaR ({var_confidence}%)", f"₹ {abs(var_result):,.2f}")
