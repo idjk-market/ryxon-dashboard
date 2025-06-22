@@ -11,69 +11,89 @@ st.title("📊 Ryxon – The Edge of Trading Risk Intelligence")
 file = st.file_uploader("📤 Upload Trade Data File (.csv or .xlsx)", type=["csv", "xlsx"])
 
 if file:
-    # Load data
-    df = pd.read_excel(file) if file.name.endswith(".xlsx") else pd.read_csv(file)
-    df.columns = df.columns.str.strip().str.title()
+    if file.name.endswith(".xlsx"):
+        df = pd.read_excel(file)
+    else:
+        df = pd.read_csv(file)
 
-    # Parse dates safely
+    df.columns = [col.strip().title() for col in df.columns]
+
     if "Trade Date" in df.columns:
-        df["Trade Date"] = pd.to_datetime(df["Trade Date"], errors='coerce')
+        df["Trade Date"] = pd.to_datetime(df["Trade Date"])
 
-    st.markdown("## 🧾 Trade Table with Filters")
-    with st.expander("Filtered Trade Table (📥 Click to expand/collapse)", expanded=True):
-        # Column filters
-        for col in df.select_dtypes(include=['object', 'category']).columns:
-            df[col] = df[col].astype(str)
-            selected = st.multiselect(f"Filter by {col}", options=sorted(df[col].unique()), default=list(df[col].unique()))
-            df = df[df[col].isin(selected)]
+    st.markdown("### 📄 Trade Details (With Dropdown Filters)")
 
-        for col in df.select_dtypes(include=['int64', 'float64']).columns:
-            min_val = float(df[col].min())
-            max_val = float(df[col].max())
-            val = st.slider(f"Select {col} Range", min_val, max_val, (min_val, max_val))
-            df = df[(df[col] >= val[0]) & (df[col] <= val[1])]
+    # --- Dropdown Filtering Logic ---
+    filtered_df = df.copy()
+    with st.expander("🔍 Filter Columns"):
+        for col in df.columns:
+            if df[col].dtype == 'object' or df[col].nunique() < 50:
+                unique_vals = df[col].dropna().unique().tolist()
+                selected_vals = st.multiselect(f"Filter by {col}", options=sorted(unique_vals), default=unique_vals)
+                filtered_df = filtered_df[filtered_df[col].isin(selected_vals)]
+            elif np.issubdtype(df[col].dtype, np.number):
+                min_val, max_val = df[col].min(), df[col].max()
+                selected_range = st.slider(f"Range for {col}", min_value=float(min_val), max_value=float(max_val), value=(float(min_val), float(max_val)))
+                filtered_df = filtered_df[(df[col] >= selected_range[0]) & (df[col] <= selected_range[1])]
 
-        st.dataframe(df, use_container_width=True)
+    st.dataframe(filtered_df, use_container_width=True, height=500)
 
     # --- MTM Calculation ---
-    if set(["Market Price", "Book Price", "Quantity"]).issubset(df.columns):
-        df["MTM"] = (df["Market Price"] - df["Book Price"]) * df["Quantity"]
-        st.markdown("## 💰 MTM Calculation")
-        with st.expander("📘 MTM Breakdown", expanded=False):
-            st.dataframe(df[["Commodity", "Instrument Type", "Trade Action", "Market Price", "Book Price", "Quantity", "MTM"]])
-            st.metric("Total MTM", f"₹ {df['MTM'].sum():,.2f}")
+    with st.expander("📘 MTM Calculation"):
+        if all(col in filtered_df.columns for col in ["Market Price", "Book Price", "Quantity"]):
+            filtered_df["MTM"] = (filtered_df["Market Price"] - filtered_df["Book Price"]) * filtered_df["Quantity"]
+            st.write("**Formula:** MTM = (Market Price - Book Price) × Quantity")
+            st.metric("Total MTM", f"₹ {filtered_df['MTM'].sum():,.2f}")
+            st.dataframe(filtered_df[["Market Price", "Book Price", "Quantity", "MTM"]])
+        else:
+            st.warning("Missing columns for MTM Calculation")
 
-    # --- PnL Calculation ---
-    if "Trade Action" in df.columns:
-        df["Realized PnL"] = np.where(df["Trade Action"].str.lower().str.strip() == "sell", df["MTM"], 0)
-        df["Unrealized PnL"] = np.where(df["Trade Action"].str.lower().str.strip() == "buy", df["MTM"], 0)
-        st.markdown("## 📈 PnL Summary")
-        with st.expander("📙 Realized & Unrealized PnL", expanded=False):
-            st.dataframe(df[["Trade Action", "MTM", "Realized PnL", "Unrealized PnL"]])
-            col1, col2 = st.columns(2)
-            col1.metric("Total Realized PnL", f"₹ {df['Realized PnL'].sum():,.2f}")
-            col2.metric("Total Unrealized PnL", f"₹ {df['Unrealized PnL'].sum():,.2f}")
+    # --- PnL Summary ---
+    with st.expander("📙 Realized & Unrealized PnL"):
+        if "Trade Action" in filtered_df.columns and "MTM" in filtered_df.columns:
+            filtered_df["Realized PnL"] = np.where(filtered_df["Trade Action"].str.lower() == "sell", filtered_df["MTM"], 0)
+            filtered_df["Unrealized PnL"] = np.where(filtered_df["Trade Action"].str.lower() == "buy", filtered_df["MTM"], 0)
+            st.metric("Realized PnL", f"₹ {filtered_df['Realized PnL'].sum():,.2f}")
+            st.metric("Unrealized PnL", f"₹ {filtered_df['Unrealized PnL'].sum():,.2f}")
+            st.dataframe(filtered_df[["Trade Action", "MTM", "Realized PnL", "Unrealized PnL"]])
+        else:
+            st.warning("Missing columns for PnL calculation")
 
-    # --- VaR Calculation ---
-    st.markdown("## ⚠️ Value at Risk (VaR)")
-    with st.expander("📕 VaR Calculation", expanded=False):
-        conf = st.slider("Select Confidence Level (%)", 90, 99, 95)
-        z = {90: 1.2816, 91: 1.34, 92: 1.4051, 93: 1.4758, 94: 1.5548, 95: 1.645,
-             96: 1.7507, 97: 1.8808, 98: 2.0537, 99: 2.3263}.get(conf, 1.645)
+    # --- VaR Section ---
+    with st.expander("📕 Value at Risk (VaR)"):
+        confidence = st.slider("Select Confidence Level (%)", min_value=90, max_value=99, value=95)
+        from scipy.stats import norm
+        z = norm.ppf(confidence / 100)
 
-        if "MTM" in df.columns and "Trade Date" in df.columns:
-            df = df.sort_values("Trade Date")
-            df["Daily Return"] = df["MTM"].pct_change().fillna(0)
-            df["Rolling Std"] = df["Daily Return"].rolling(5).std().fillna(0)
-            df["1-Day VaR"] = -1 * (df["Daily Return"].mean() - z * df["Rolling Std"]) * df["MTM"].abs()
-
-            st.dataframe(df[["Trade Date", "Daily Return", "Rolling Std", "1-Day VaR"]])
-            st.metric(f"Latest 1-Day VaR at {conf}%", f"₹ {df['1-Day VaR'].iloc[-1]:,.2f}")
+        if "MTM" in filtered_df.columns and "Trade Date" in filtered_df.columns:
+            filtered_df = filtered_df.sort_values("Trade Date")
+            filtered_df["Daily Return"] = filtered_df["MTM"].pct_change().fillna(0)
+            filtered_df["Rolling Std"] = filtered_df["Daily Return"].rolling(window=10).std().fillna(0)
+            filtered_df["1-Day VaR"] = -1 * (filtered_df["Daily Return"].mean() - z * filtered_df["Rolling Std"]) * filtered_df["MTM"].abs()
+            st.metric("Latest 1-Day VaR", f"₹ {filtered_df['1-Day VaR'].iloc[-1]:,.2f}")
+            st.dataframe(filtered_df[["Trade Date", "Daily Return", "Rolling Std", "1-Day VaR"]])
+        else:
+            st.warning("MTM and Trade Date required for VaR")
 
     # --- Final Risk Summary ---
-    st.markdown("## 🧾 Final Summary")
+    st.markdown("### 🧾 Final Risk Summary")
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("📉 MTM", f"₹ {df['MTM'].sum():,.2f}")
-    col2.metric("📈 Realized PnL", f"₹ {df['Realized PnL'].sum():,.2f}")
-    col3.metric("🧮 Unrealized PnL", f"₹ {df['Unrealized PnL'].sum():,.2f}")
-    col4.metric("🔻 Latest VaR", f"₹ {df['1-Day VaR'].iloc[-1]:,.2f}")
+    col1.metric("📉 MTM", f"₹ {filtered_df['MTM'].sum():,.2f}" if "MTM" in filtered_df else "N/A")
+    col2.metric("📈 Realized PnL", f"₹ {filtered_df['Realized PnL'].sum():,.2f}" if "Realized PnL" in filtered_df else "N/A")
+    col3.metric("🧮 Unrealized PnL", f"₹ {filtered_df['Unrealized PnL'].sum():,.2f}" if "Unrealized PnL" in filtered_df else "N/A")
+    col4.metric(f"🔻 VaR ({confidence}%)", f"₹ {filtered_df['1-Day VaR'].iloc[-1]:,.2f}" if "1-Day VaR" in filtered_df else "N/A")
+
+    # --- Chart ---
+    st.markdown("#### 📊 PnL Breakdown")
+    chart_data = []
+    for metric in ["MTM", "Realized PnL", "Unrealized PnL"]:
+        if metric in filtered_df:
+            chart_data.append({"Metric": metric, "Value": filtered_df[metric].sum(), "Type": "Profit" if filtered_df[metric].sum() >= 0 else "Loss"})
+
+    if chart_data:
+        chart_df = pd.DataFrame(chart_data)
+        fig = px.bar(chart_df, x="Metric", y="Value", color="Type", text="Value",
+                     color_discrete_map={"Profit": "green", "Loss": "red"})
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.success("✅ Dashboard Ready.")
