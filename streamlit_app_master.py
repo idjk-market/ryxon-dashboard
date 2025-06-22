@@ -3,96 +3,88 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-st.set_page_config(layout="wide")
-st.title("📊 Ryxon Risk Management Dashboard")
+st.set_page_config(page_title="Ryxon Risk Dashboard", layout="wide")
 
-# Upload Excel File
-uploaded_file = st.sidebar.file_uploader("Upload Trade Excel File", type=[".xlsx"])
+# File upload
+st.sidebar.title("📁 Upload Trade Excel")
+uploaded_file = st.sidebar.file_uploader("Upload your trade file (.xlsx)", type=["xlsx"])
 
 @st.cache_data
-def load_excel(file):
-    return pd.read_excel(file)
-
-def calculate_mtm(df):
-    df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
+def load_data(file):
+    df = pd.read_excel(file)
+    df['MTM'] = pd.to_numeric(df['MTM'], errors='coerce').fillna(0)
     return df
-
-def calculate_pnl(df):
-    df['Realized PnL'] = np.where(
-        df['Trade Action'].str.lower() == 'sell',
-        (df['Market Price'] - df['Book Price']) * df['Quantity'],
-        0
-    )
-    df['Unrealized PnL'] = df['MTM'] - df['Realized PnL']
-    return df
-
-def calculate_var(df, confidence_level=95):
-    df['Daily Return'] = df['MTM'].pct_change().fillna(0)
-    sorted_returns = np.sort(df['Daily Return'].dropna())
-    var_percentile = 100 - confidence_level
-    var_value = -np.percentile(sorted_returns, var_percentile) * df['MTM'].sum()
-    return var_value
 
 if uploaded_file:
-    df = load_excel(uploaded_file)
-    df = calculate_mtm(df)
-    df = calculate_pnl(df)
+    df = load_data(uploaded_file)
 
-    st.subheader("📄 Trade Data Table")
-    st.dataframe(df, use_container_width=True)
+    # -------------------- Filter UI --------------------
+    st.title("📊 Trade Table with Filters")
+    with st.expander("📄 Filtered Trade Data", expanded=True):
+        filters = {}
+        cols = st.columns(len(df.columns))
+        for i, column in enumerate(df.columns):
+            unique_vals = ['All'] + sorted(df[column].dropna().astype(str).unique().tolist())
+            filters[column] = cols[i].selectbox(f"Filter: {column}", unique_vals)
 
-    with st.expander("🧮 MTM Calculation Logic", expanded=False):
-        st.write("MTM = (Market Price - Book Price) × Quantity")
-        st.dataframe(df[['Trade ID', 'Book Price', 'Market Price', 'Quantity', 'MTM']], use_container_width=True)
+        df_filtered = df.copy()
+        for column, selected_value in filters.items():
+            if selected_value != 'All':
+                df_filtered = df_filtered[df_filtered[column].astype(str) == selected_value]
 
-    with st.expander("📈 Realized & Unrealized PnL", expanded=False):
-        st.dataframe(df[['Trade ID', 'Realized PnL', 'Unrealized PnL']], use_container_width=True)
+        st.dataframe(df_filtered, use_container_width=True)
 
+    # -------------------- MTM Logic --------------------
+    with st.expander("📘 MTM Calculation Logic", expanded=False):
+        st.write("Mark-to-Market = (Market Price - Trade Price) * Quantity")
+        st.write(f"Total MTM: ₹ {df_filtered['MTM'].sum():,.2f}")
+
+    # -------------------- Realized & Unrealized PnL --------------------
+    with st.expander("🧾 Realized & Unrealized PnL", expanded=False):
+        realized = df_filtered[df_filtered['Status'] == 'SquaredOff']['MTM'].sum()
+        unrealized = df_filtered[df_filtered['Status'] != 'SquaredOff']['MTM'].sum()
+        st.metric("Realized PnL", f"₹ {realized:,.2f}")
+        st.metric("Unrealized PnL", f"₹ {unrealized:,.2f}")
+
+    # -------------------- Value at Risk (VaR) --------------------
     with st.expander("📉 Value at Risk (VaR)", expanded=False):
-        var_confidence = st.slider("Confidence Level (%)", 90, 99, 95)
-        df['Daily Return'] = df['MTM'].pct_change().fillna(0)
-        var_result = calculate_var(df, var_confidence)
-        st.metric(f"VaR ({var_confidence}%)", f"₹ {abs(var_result):,.2f}")
+        confidence = st.slider("Select Confidence Level (%)", 90, 99, 95)
+        pnl_series = df_filtered['MTM'].dropna()
+        if not pnl_series.empty:
+            var_value = -np.percentile(pnl_series, 100 - confidence)
+            st.metric(label=f"VaR ({confidence}%)", value=f"₹ {abs(var_value):,.2f}")
+        else:
+            st.warning("MTM data not available for VaR calculation.")
 
+    # -------------------- Historical VaR --------------------
     with st.expander("📊 Historical Value at Risk (Hist VaR)", expanded=False):
-        mtm_col = st.selectbox("Select MTM Column", options=df.columns, index=df.columns.get_loc('MTM'))
-        hist_conf = st.slider("Historical Confidence Level (%)", 90, 99, 95)
+        st.markdown("This metric shows the potential maximum loss based on historical MTM variations.")
+        df_filtered['MTM'] = pd.to_numeric(df_filtered['MTM'], errors='coerce').fillna(0)
+        df_filtered['Daily_Return'] = df_filtered['MTM'].pct_change().fillna(0)
 
-        try:
-            df[mtm_col] = pd.to_numeric(df[mtm_col], errors='coerce').fillna(0)
-            df['Daily_Return'] = df[mtm_col].pct_change().fillna(0)
-            sorted_returns = np.sort(df['Daily_Return'].dropna())
-            hist_var = -np.percentile(sorted_returns, 100 - hist_conf) * df[mtm_col].sum()
+        if len(df_filtered) >= 2:
+            sorted_returns = np.sort(df_filtered['Daily_Return'].dropna())
+            hist_var = -np.percentile(sorted_returns, 100 - confidence) * df_filtered['MTM'].sum()
 
-            st.metric(
-                label=f"Historical VaR ({hist_conf}%)",
-                value=f"₹ {abs(hist_var):,.2f}",
-                delta=f"{hist_var/df[mtm_col].sum()*100:.2f}% of portfolio"
-            )
+            st.metric(label=f"Historical VaR ({confidence}%)",
+                      value=f"₹ {abs(hist_var):,.2f}",
+                      delta=f"{hist_var/df_filtered['MTM'].sum()*100:.2f}% of portfolio")
 
-            with st.expander("📌 Diagnostics"):
-                st.write(f"Analysis period: {len(df)} days")
-                st.write(f"Portfolio value: ₹ {df[mtm_col].sum():,.2f}")
+            with st.expander("📈 Distribution Diagnostics"):
                 fig, ax = plt.subplots()
-                ax.hist(df['Daily_Return'], bins=50, alpha=0.7)
-                ax.axvline(x=-abs(hist_var)/df[mtm_col].sum(), color='red', linestyle='--')
+                ax.hist(df_filtered['Daily_Return'], bins=50, alpha=0.7)
+                ax.axvline(x=-abs(hist_var)/df_filtered['MTM'].sum(), color='red', linestyle='--')
                 ax.set_title("Distribution of Daily Returns")
                 ax.set_xlabel("Daily Return")
                 ax.set_ylabel("Frequency")
                 st.pyplot(fig)
+        else:
+            st.warning("Not enough data points for Historical VaR calculation.")
 
-        except Exception as e:
-            st.error(f"Error calculating Historical VaR: {str(e)}")
-
-    with st.expander("📄 Final Risk Summary", expanded=True):
-        mtm_total = df['MTM'].sum()
-        realized_total = df['Realized PnL'].sum()
-        unrealized_total = df['Unrealized PnL'].sum()
-        st.markdown("""
-        ### 📑 Final Risk Summary
-        """)
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("📉 MTM", f"₹ {mtm_total:,.2f}")
-        col2.metric("🧾 Realized PnL", f"₹ {realized_total:,.2f}")
-        col3.metric("📈 Unrealized PnL", f"₹ {unrealized_total:,.2f}")
-        col4.metric(f"🔻 VaR ({var_confidence}%)", f"₹ {abs(var_result):,.2f}")
+    # -------------------- Final Risk Summary --------------------
+    st.subheader("🧾 Final Risk Summary")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("📉 MTM", f"₹ {df_filtered['MTM'].sum():,.2f}")
+    col2.metric("📈 Realized PnL", f"₹ {realized:,.2f}")
+    col3.metric("📊 Unrealized PnL", f"₹ {unrealized:,.2f}")
+    col4.metric(f"📉 VaR ({confidence}%)", f"₹ {abs(var_value):,.2f}")
