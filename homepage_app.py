@@ -1,58 +1,96 @@
 import streamlit as st
-from PIL import Image
 
-# ---- PAGE CONFIG ----
-st.set_page_config(
-    page_title="Ryxon Dashboard",
-    page_icon="📊",
-    layout="wide"
-)
+st.set_page_config(page_title="Ryxon – Market Risk Intelligence", layout="wide")
 
-# ---- LOAD LOGO ----
-logo = Image.open("ryxon_logo.png")
-
-# ---- HEADER SECTION ----
+# --- Custom CSS ---
 st.markdown("""
-    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
-        <img src="https://raw.githubusercontent.com/idjk-market/ryxon-dashboard/main/ryxon_logo.png" width="80">
-        <h1 style="color: #4B0082; font-weight: 900;">Ready to Take Control of Risk?</h1>
-    </div>
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .main {
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 2rem;
+        }
+        .logo {
+            width: 180px;
+            margin-bottom: 1rem;
+        }
+        .hero-title {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: #511282;
+        }
+        .sub-text {
+            font-size: 1.2rem;
+            margin-top: -0.5rem;
+            margin-bottom: 1.5rem;
+            color: #333;
+        }
+        .launch-button {
+            background-color: #ffcc00;
+            color: #000;
+            padding: 0.8rem 2rem;
+            font-size: 1.1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .launch-button:hover {
+            background-color: #f7b500;
+        }
+        .feature-box {
+            background-color: #f1f3f5;
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+    </style>
 """, unsafe_allow_html=True)
 
-st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
+# --- HEADER & LOGO ---
+st.image("ryxon_logo.png", width=180)
+st.markdown("<h1 class='hero-title'>Ready to Take Control of Risk?</h1>", unsafe_allow_html=True)
+st.markdown("<p class='sub-text'>Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!</p>", unsafe_allow_html=True)
 
-# ---- CTA BUTTON (WORKS ON STREAMLIT CLOUD) ----
+# --- LAUNCH BUTTON ---
 st.markdown("""
-    <div style='text-align: center; margin-top: 20px;'>
-        <a href='https://ryxon-dashboard.streamlit.app' target='_blank'>
-            <button style='background-color:#FFD700; color:black; font-size: 1.2rem; padding: 0.7rem 1.5rem; border-radius: 10px; font-weight: bold; border:none; cursor:pointer;'>
-                🚀 Launch Dashboard
-            </button>
-        </a>
-    </div>
+<a href='https://idjk-market-ryxon-dashboard-main-streamlit-app-py.streamlit.app' target='_blank'>
+    <button class='launch-button'>🚀 Launch Dashboard</button>
+</a>
 """, unsafe_allow_html=True)
 
-# ---- FEATURE HIGHLIGHTS ----
-st.markdown("## 🔍 Features You’ll Love")
-st.markdown("""
-<ul style="font-size: 1.1rem; line-height: 1.6;">
-    <li>📊 <strong>Real-time MTM & PnL Tracking</strong> – Upload trades and instantly view live MTM values</li>
-    <li>🛡️ <strong>Value at Risk (VaR)</strong> – Parametric & Historical VaR with confidence control</li>
-    <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
-    <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
-    <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
-</ul>
-""", unsafe_allow_html=True)
+# --- FEATURES ---
+st.markdown("## ✨ Key Features")
+features = [
+    "📊 Real-time MTM & Exposure Analysis",
+    "🧠 Value at Risk (VaR) – Parametric & Historical",
+    "🎲 Monte Carlo Simulations",
+    "🌪️ Stress & Scenario Testing",
+    "📁 Excel Upload & Auto PnL Parsing",
+    "🛡️ Credit Risk & Hedge Effectiveness Reporting"
+]
+for f in features:
+    st.markdown(f"<div class='feature-box'>{f}</div>", unsafe_allow_html=True)
 
-# ---- BLOG / INSIGHT TEASER ----
+# --- PRICING SECTION ---
+st.markdown("## 💰 Pricing")
+st.markdown("""
+- **Free Tier**: Upload file & view MTM, PnL (Limit: 200 trades)
+- **Pro Plan**: ₹499/month – Full access to risk models, VaR, scenario testing
+- **Enterprise**: Custom pricing – API, Integrations, Email Reports
+""")
+
+# --- BLOG HIGHLIGHTS ---
+st.markdown("## 📰 From the Blog")
+st.markdown("""
+- 🔎 [What is VaR? How Traders Use It](https://yourbloglink.com/var)
+- 🔐 [Hedging Commodities: The Smart Way](https://yourbloglink.com/hedging)
+- 📈 [Why MTM Matters Daily](https://yourbloglink.com/mtm)
+""")
+
+# --- FOOTER ---
 st.markdown("---")
-st.markdown("## 📚 Latest from the Ryxon Blog")
-st.info("Coming Soon: ‘Top 5 Ways Risk Desks Lose Money & How Ryxon Prevents It’")
-
-# ---- FOOTER ----
-st.markdown("---")
-st.markdown("""
-<div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
-    🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
-</div>
-""", unsafe_allow_html=True)
+st.markdown("📍 Built with ❤️ by djk | Powered by Ryxon – The Edge of Trading Risk Intelligence")
