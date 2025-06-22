@@ -1,61 +1,62 @@
 import streamlit as st
 from PIL import Image
 
-# --- PAGE CONFIG ---
+# ---- PAGE CONFIG ----
 st.set_page_config(
-    page_title="Ryxon Risk Dashboard",
-    page_icon="🚀",
+    page_title="Ryxon Dashboard",
+    page_icon="📊",
     layout="wide"
 )
 
-# --- HEADER ---
+# ---- HEADER SECTION ----
 st.markdown("""
-    <h1 style='text-align: left; color: #4B0082;'>🚀 Ready to Take Control of Risk?</h1>
+    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
+        <img src="https://raw.githubusercontent.com/idjk-market/ryxon-dashboard/main/ryxon_logo.png" width="80">
+        <h1 style="color: #4B0082; font-weight: 900;">Ready to Take Control of Risk?</h1>
+    </div>
 """, unsafe_allow_html=True)
 
 st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
 
-# --- LOGO ---
-logo_path = "ryxon_logo.png"
-try:
-    image = Image.open(logo_path)
-    st.image(image, width=240)
-except:
-    st.warning("Logo image not found.")
+# ---- CTA BUTTON ----
+# Replace this URL with your actual Streamlit Cloud URL
+DASHBOARD_URL = "https://ryxon-dashboard.streamlit.app"  # Change this to your actual URL
 
-# --- FEATURE HIGHLIGHTS ---
+st.markdown(f"""
+    <div style='text-align: center; margin-top: 20px;'>
+        <a href='{DASHBOARD_URL}' target='_self'>
+            <button style='background-color:#FFD700; color:black; font-size: 1.2rem; padding: 0.7rem 1.5rem; border-radius: 10px; font-weight: bold; border:none; cursor:pointer;'>
+                🚀 Launch Dashboard
+            </button>
+        </a>
+    </div>
+""", unsafe_allow_html=True)
+
+# Alternative Streamlit button (works better in some cases)
+# if st.button("🚀 Launch Dashboard", type="primary"):
+#     st.switch_page("streamlit_app_master.py")  # If you're using multi-page app
+
+# ---- FEATURE HIGHLIGHTS ----
+st.markdown("## 🔍 Features You'll Love")
 st.markdown("""
-### 📊 Core Features
-<ul>
-    <li>📊 <strong>MTM Exposure & PnL Dashboard</strong> with Upload Support</li>
-    <li>📈 <strong>Value at Risk</strong> – Parametric & Historical</li>
-    <li>📊 <strong>Trade Filters & Dropdowns</strong> for dynamic analysis</li>
-    <li>📊 <strong>Stress Test & Scenario Tools</strong> (Coming Soon)</li>
-    <li>📚 <strong>Built by Traders, for Traders</strong> – Markets from the desk of djk</li>
+<ul style="font-size: 1.1rem; line-height: 1.6;">
+    <li>📊 <strong>Real-time MTM & PnL Tracking</strong> – Upload trades and instantly view live MTM values</li>
+    <li>🛡️ <strong>Value at Risk (VaR)</strong> – Parametric & Historical VaR with confidence control</li>
+    <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
+    <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
+    <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
 </ul>
 """, unsafe_allow_html=True)
 
-# --- LAUNCH BUTTON (OPEN IN NEW TAB) ---
+# ---- BLOG / INSIGHT TEASER ----
+st.markdown("---")
+st.markdown("## 📚 Latest from the Ryxon Blog")
+st.info("Coming Soon: 'Top 5 Ways Risk Desks Lose Money & How Ryxon Prevents It'")
+
+# ---- FOOTER ----
+st.markdown("---")
 st.markdown("""
-<div style="text-align: left; margin-top: 20px;">
-    <a href="https://idjk-market-ryxon-dashboard-main-streamlit-app-py.streamlit.app" target="_blank">
-        <button style="
-            background-color: #ffcc00;
-            color: black;
-            padding: 12px 28px;
-            font-size: 18px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-        ">🚀 Launch Dashboard</button>
-    </a>
+<div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
+    🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
 </div>
 """, unsafe_allow_html=True)
-
-# --- FOOTER ---
-st.markdown("""
----
-© 2025 Ryxon Technologies – Market Risk Intelligence
-""
-)
