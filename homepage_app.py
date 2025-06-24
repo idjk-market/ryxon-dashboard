@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import numpy as np
-from scipy.stats import norm
+import plotly.express as px
+from datetime import datetime
 
 # ---- PAGE CONFIG ----
 st.set_page_config(
@@ -11,121 +11,85 @@ st.set_page_config(
     layout="wide"
 )
 
-# ---- SESSION STATE ----
+# ---- METRIC STYLE FIX ----
+st.markdown("""
+<style>
+[data-testid="metric-container"] {
+    width: 100% !important;
+    padding: 8px !important;
+}
+[data-testid="metric-container"] > div {
+    font-size: 1.2rem !important;
+    white-space: normal !important;
+    overflow-wrap: break-word !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---- STATE ----
 if 'show_dashboard' not in st.session_state:
     st.session_state.show_dashboard = False
 
 # ---- LANDING PAGE ----
 if not st.session_state.show_dashboard:
-    # [Keep your existing landing page code exactly as is]
-    pass
-else:
-    st.title("📊 Ryxon Risk Intelligence Workspace")
-    uploaded_file = st.file_uploader("Upload your trade file (CSV or Excel)", type=["csv", "xlsx"])
-
-    if uploaded_file:
-        try:
-            # ---- DATA PROCESSING ----
-            if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
-
-            # Validate required columns
-            required_cols = ['Market Price', 'Book Price', 'Quantity']
-            missing_cols = [col for col in required_cols if col not in df.columns]
-            if missing_cols:
-                st.error(f"Missing required columns: {', '.join(missing_cols)}")
-                st.stop()
-
-            # Calculate core metrics
-            df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
-            df['VaR'] = abs(df['MTM'] * 0.01 * 1.645)  # 1% vol, 95% confidence
-            
-            # Initialize empty columns if missing
-            for col in ['Realized PnL', 'Unrealized PnL']:
-                if col not in df.columns:
-                    df[col] = 0.0
-
-            # ---- FILTERS ----
-            st.subheader("🔍 Filters")
-            cols = st.columns(4)
-            filters = {
-                'Instrument Type': cols[0].selectbox("Instrument", ["All"] + sorted(df['Instrument Type'].unique())),
-                'Commodity': cols[1].selectbox("Commodity", ["All"] + sorted(df['Commodity'].unique())),
-                'Trade Action': cols[2].selectbox("Trade Action", ["All"] + sorted(df['Trade Action'].unique())),
-                'Trade Date': cols[3].selectbox("Date", ["All"] + sorted(df['Trade Date'].astype(str).unique()))
-            }
-
-            # Apply filters
-            filtered_df = df.copy()
-            for col, val in filters.items():
-                if val != "All":
-                    filtered_df = filtered_df[filtered_df[col] == val] if col != 'Trade Date' else \
-                                filtered_df[filtered_df[col].astype(str) == val]
-
-            # ---- TRADE DATA TABLE ----
-            st.subheader("📋 Trade Data")
-            st.dataframe(
-                filtered_df.style.format({
-                    'Market Price': '${:,.2f}',
-                    'Book Price': '${:,.2f}',
-                    'MTM': '${:,.2f}',
-                    'VaR': '${:,.2f}',
-                    'Realized PnL': '${:,.2f}',
-                    'Unrealized PnL': '${:,.2f}'
-                }),
-                height=400,
-                use_container_width=True
-            )
-
-            # ---- MAIN METRICS ----
-            st.subheader("📊 Core Metrics")
-            m1, m2, m3, m4 = st.columns(4)
-            m1.metric("Total MTM", f"${filtered_df['MTM'].sum():,.2f}")
-            m2.metric("Portfolio VaR", f"${filtered_df['VaR'].sum():,.2f}")
-            m3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
-            m4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
-
-            # ---- ADVANCED RISK ANALYTICS ----
-            st.subheader("🚨 Advanced Risk Analytics")
-            tab1, tab2, tab3 = st.tabs(["Portfolio VaR", "Monte Carlo", "Volatility Analysis"])
-
-            with tab1:
-                st.markdown("**Variance-Covariance VaR**")
-                conf_level = st.slider("Confidence Level", 90, 99, 95, key='var_conf')
-                portfolio_var = abs(filtered_df['MTM'].sum() * norm.ppf(conf_level/100) * 0.01)
-                st.metric(f"Portfolio VaR ({conf_level}%)", f"${portfolio_var:,.2f}")
-
-            with tab2:
-                st.markdown("**Monte Carlo Simulation**")
-                n_sims = st.number_input("Simulations", 100, 10000, 1000)
-                days = st.number_input("Horizon (Days)", 1, 30, 10)
-                
-                if st.button("Run Simulation"):
-                    returns = np.random.normal(0, filtered_df['MTM'].std(), (n_sims, days))
-                    paths = np.cumsum(returns, axis=1)
-                    fig = px.line(pd.DataFrame(paths.T), title=f"{n_sims} Simulated Paths")
-                    st.plotly_chart(fig, use_container_width=True)
-
-            with tab3:
-                st.markdown("**Rolling Volatility**")
-                window = st.slider("Window Size", 5, 60, 21)
-                if 'Trade Date' in filtered_df.columns:
-                    daily = filtered_df.groupby('Trade Date')['MTM'].sum()
-                    rolling_vol = daily.rolling(window).std()
-                    st.line_chart(rolling_vol)
-
-            # ---- VISUALIZATIONS ----
-            st.subheader("📈 Exposure Analysis")
-            exp_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
-            c1, c2 = st.columns(2)
-            c1.plotly_chart(px.bar(exp_df, x='Commodity', y='MTM', title="Exposure by Commodity"))
-            c2.plotly_chart(px.pie(exp_df, names='Commodity', values='MTM', title="Exposure Distribution"))
-
-        except Exception as e:
-            st.error(f"Error processing file: {str(e)}")
-
-    if st.button("← Back to Home"):
-        st.session_state.show_dashboard = False
+    st.title("📊 Welcome to Ryxon – The Edge of Trading Risk Intelligence")
+    st.markdown("""
+    Upload your trade file and instantly gain insight into your trading risks with MTM, VaR, and more.
+    """)
+    if st.button("🚀 Launch Dashboard"):
+        st.session_state.show_dashboard = True
         st.rerun()
+else:
+    st.title("📈 Ryxon Risk Dashboard")
+    uploaded_file = st.file_uploader("Upload your trade data (Excel)", type=["xlsx"])
+
+    if uploaded_file is not None:
+        df = pd.read_excel(uploaded_file)
+
+        # ---- TRADE DATA TABLE ----
+        st.markdown("### 📋 Filtered Trade Data")
+        st.dataframe(df, use_container_width=True)
+
+        # ---- CALCULATE METRICS ----
+        df['MTM'] = df.get('MTM', 0)
+        df['Realized PnL'] = df.get('Realized PnL', 0)
+        df['Unrealized PnL'] = df.get('Unrealized PnL', 0)
+
+        mtm_total = df['MTM'].sum()
+        realized_pnl = df['Realized PnL'].sum()
+        unrealized_pnl = df['Unrealized PnL'].sum()
+
+        try:
+            returns = df['MTM'].pct_change().dropna()
+            avg_return = returns.mean()
+            volatility = returns.std()
+            var_95 = np.percentile(df['MTM'].dropna(), 5)
+        except:
+            avg_return = 0
+            volatility = 0
+            var_95 = 0
+
+        with st.expander("📊 Core Risk Metrics", expanded=True):
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Mark-to-Market", f"${mtm_total:,.2f}")
+            col2.metric("1-Day VaR (95%)", f"${var_95:,.2f}")
+            col3.metric("Realized PnL", f"${realized_pnl:,.2f}")
+            col4.metric("Unrealized PnL", f"${unrealized_pnl:,.2f}")
+            st.caption(f"Avg Daily Return: {avg_return:.4f} | Avg Volatility: {volatility:.4f}")
+
+        # ---- ADVANCED SECTION ----
+        with st.expander("🧠 Advanced Risk Analytics", expanded=False):
+            with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
+                st.write("Coming soon...")
+            with st.expander("🧪 Monte Carlo Simulation"):
+                st.write("Coming soon...")
+            with st.expander("📉 Rolling Volatility"):
+                st.line_chart(df['MTM'])
+            with st.expander("🚨 Stress Testing"):
+                st.write("Coming soon...")
+            with st.expander("📊 Scenario Analysis"):
+                st.write("Coming soon...")
+            with st.expander("📉 Historical VaR"):
+                st.write("Coming soon...")
+    else:
+        st.warning("Please upload a valid Excel trade file to proceed.")
