@@ -42,6 +42,7 @@ if not st.session_state.show_dashboard:
         <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
         <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
         <li>📊 <strong>Exposure Analysis</strong> – Visualize by commodity/instrument</li>
+        <li>📄 <strong>Performance Over Time</strong> – Daily MTM & PnL tracking</li>
     </ul>
     """, unsafe_allow_html=True)
 
@@ -63,7 +64,6 @@ if not st.session_state.show_dashboard:
             </div>
             """, unsafe_allow_html=True)
 
-    # ---- FOOTER ----
     st.markdown("""
     <div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
         🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
