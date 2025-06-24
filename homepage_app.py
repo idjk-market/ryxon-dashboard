@@ -1,10 +1,8 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-from io import BytesIO
-from PIL import Image
-from datetime import datetime
 import numpy as np
+import plotly.express as px
+from datetime import datetime
 
 # ---- PAGE CONFIG ----
 st.set_page_config(
@@ -18,6 +16,7 @@ st.markdown("""
 <style>
 [data-testid="metric-container"] {
     width: 100% !important;
+    padding: 8px !important;
 }
 [data-testid="metric-container"] > div {
     font-size: 1.2rem !important;
@@ -27,64 +26,74 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---- SESSION STATE INIT ----
+# ---- STATE ----
 if 'show_dashboard' not in st.session_state:
     st.session_state.show_dashboard = False
 
 # ---- LANDING PAGE ----
 if not st.session_state.show_dashboard:
+    st.title("📊 Welcome to Ryxon – The Edge of Trading Risk Intelligence")
     st.markdown("""
-        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
-            <img src="https://raw.githubusercontent.com/idjk-market/ryxon-dashboard/main/ryxon_logo.png" width="80">
-            <h1 style="color: #4B0082; font-weight: 900;">Ready to Take Control of Risk?</h1>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
-
-    if st.button("🚀 Launch Dashboard", type="primary", use_container_width=True):
+    Upload your trade file and instantly gain insight into your trading risks with MTM, VaR, and more.
+    """)
+    if st.button("🚀 Launch Dashboard"):
         st.session_state.show_dashboard = True
         st.rerun()
-
-    # ---- FEATURES ----
-    st.markdown("## 🔍 Features You'll Love")
-    st.markdown("""
-    <ul style="font-size: 1.1rem; line-height: 1.6;">
-        <li>📊 <strong>Real-time MTM & PnL Tracking</strong> – Upload trades and instantly view live MTM values</li>
-        <li>🛡️ <strong>Value at Risk (VaR)</strong> – Parametric & Historical VaR with confidence control</li>
-        <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
-        <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
-        <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
-        <li>📊 <strong>Exposure Analysis</strong> – Visualize by commodity/instrument</li>
-        <li>📄 <strong>Performance Over Time</strong> – Daily MTM & PnL tracking</li>
-    </ul>
-    """, unsafe_allow_html=True)
-
-    # ---- PRODUCT COVERAGE ----
-    st.markdown("## 🏦 Asset Class Coverage")
-    cols = st.columns(4)
-    products = [
-        ("Equity", "📈", "Stocks, ETFs, and equity derivatives"),
-        ("Commodities", "⛏️", "Energy, metals, and agricultural products"),
-        ("Cryptos", "🔗", "Spot and derivatives across major cryptocurrencies"),
-        ("Bonds & Forex", "💱", "Fixed income and currency products")
-    ]
-    for i, (name, icon, desc) in enumerate(products):
-        with cols[i]:
-            st.markdown(f"""
-            <div style="background: white; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: 100%;">
-                <h4 style="color: #4B0082;">{icon} {name}</h4>
-                <p>{desc}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
-        🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
-    </div>
-    """, unsafe_allow_html=True)
-
 else:
-    # ---- FULL DASHBOARD CONTENT ----
-    from dashboard_code import run_dashboard
-    run_dashboard()
+    st.title("📈 Ryxon Risk Dashboard")
+    uploaded_file = st.file_uploader("Upload your trade data (Excel)", type=["xlsx"])
+
+    if uploaded_file is not None:
+        df = pd.read_excel(uploaded_file)
+
+        # ---- FILTERS ----
+        st.markdown("### 🔍 Filter Trades")
+        filtered_df = df.copy()
+        filter_cols = st.columns(len(df.columns))
+        for i, col in enumerate(df.columns):
+            with filter_cols[i]:
+                options = ["All"] + sorted(df[col].dropna().unique().tolist())
+                choice = st.selectbox(col, options)
+                if choice != "All":
+                    filtered_df = filtered_df[filtered_df[col] == choice]
+
+        st.markdown("### 📋 Filtered Trade Data")
+        st.dataframe(filtered_df, use_container_width=True)
+
+        # ---- CALCULATE METRICS ----
+        filtered_df['MTM'] = filtered_df.get('MTM', 0)
+        filtered_df['Realized PnL'] = filtered_df.get('Realized PnL', 0)
+        filtered_df['Unrealized PnL'] = filtered_df.get('Unrealized PnL', 0)
+
+        mtm_total = filtered_df['MTM'].sum()
+        realized_pnl = filtered_df['Realized PnL'].sum()
+        unrealized_pnl = filtered_df['Unrealized PnL'].sum()
+
+        try:
+            returns = filtered_df['MTM'].pct_change().dropna()
+            avg_return = returns.mean()
+            volatility = returns.std()
+            var_95 = np.percentile(filtered_df['MTM'].dropna(), 5)
+        except:
+            avg_return = 0
+            volatility = 0
+            var_95 = 0
+
+        with st.expander("📊 Core Risk Metrics", expanded=True):
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Mark-to-Market", f"${mtm_total:,.2f}")
+            col2.metric("1-Day VaR (95%)", f"${var_95:,.2f}")
+            col3.metric("Realized PnL", f"${realized_pnl:,.2f}")
+            col4.metric("Unrealized PnL", f"${unrealized_pnl:,.2f}")
+            st.caption(f"Avg Daily Return: {avg_return:.4f} | Avg Volatility: {volatility:.4f}")
+
+        # ---- ADVANCED SECTION ----
+        with st.expander("🧠 Advanced Risk Analytics"):
+            with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
+                st.write("Coming soon...")
+            with st.expander("🧪 Monte Carlo Simulation"):
+                st.write("Coming soon...")
+            with st.expander("📉 Rolling Volatility"):
+                st.line_chart(filtered_df['MTM'])
+    else:
+        st.warning("Please upload a valid Excel trade file to proceed.")
