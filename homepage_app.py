@@ -46,42 +46,24 @@ else:
     if uploaded_file is not None:
         df = pd.read_excel(uploaded_file)
 
-        # ---- TRADE DATA FILTERS ----
-        st.markdown("### 🔎 Filter Trades")
-
-        filter_cols = ['Trade ID', 'Commodity', 'Instrument Type', 'Trade Action']
-        filters = {}
-
-        cols = st.columns(len(filter_cols))
-        for i, col in enumerate(filter_cols):
-            options = ['All'] + sorted(df[col].dropna().astype(str).unique())
-            selected = cols[i].selectbox(f"{col}", options)
-            filters[col] = None if selected == 'All' else selected
-
-        # Apply filters
-        filtered_df = df.copy()
-        for col, value in filters.items():
-            if value is not None:
-                filtered_df = filtered_df[filtered_df[col].astype(str) == value]
-
         # ---- FILTERED TRADE DATA TABLE ----
         st.markdown("### 📋 Filtered Trade Data")
-        st.dataframe(filtered_df, use_container_width=True)
+        st.dataframe(df, use_container_width=True)
 
         # ---- CALCULATE METRICS ----
-        filtered_df['MTM'] = filtered_df.get('MTM', 0)
-        filtered_df['Realized PnL'] = filtered_df.get('Realized PnL', 0)
-        filtered_df['Unrealized PnL'] = filtered_df.get('Unrealized PnL', 0)
+        df['MTM'] = df.get('MTM', 0)
+        df['Realized PnL'] = df.get('Realized PnL', 0)
+        df['Unrealized PnL'] = df.get('Unrealized PnL', 0)
 
-        mtm_total = filtered_df['MTM'].sum()
-        realized_pnl = filtered_df['Realized PnL'].sum()
-        unrealized_pnl = filtered_df['Unrealized PnL'].sum()
+        mtm_total = df['MTM'].sum()
+        realized_pnl = df['Realized PnL'].sum()
+        unrealized_pnl = df['Unrealized PnL'].sum()
 
         try:
-            returns = filtered_df['MTM'].pct_change().dropna()
+            returns = df['MTM'].pct_change().dropna()
             avg_return = returns.mean()
             volatility = returns.std()
-            var_95 = np.percentile(filtered_df['MTM'].dropna(), 5)
+            var_95 = np.percentile(df['MTM'].dropna(), 5)
         except:
             avg_return = 0
             volatility = 0
@@ -102,7 +84,7 @@ else:
             with st.expander("🧪 Monte Carlo Simulation"):
                 st.write("Coming soon...")
             with st.expander("📉 Rolling Volatility"):
-                st.line_chart(filtered_df['MTM'])
+                st.line_chart(df['MTM'])
             with st.expander("🚨 Stress Testing"):
                 st.write("Coming soon...")
             with st.expander("📊 Scenario Analysis"):
