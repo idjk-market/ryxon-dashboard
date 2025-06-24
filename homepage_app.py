@@ -4,6 +4,7 @@ import plotly.express as px
 from io import BytesIO
 from PIL import Image
 from datetime import datetime
+import numpy as np
 
 # ---- PAGE CONFIG ----
 st.set_page_config(
@@ -87,25 +88,22 @@ else:
                 st.error("Missing required columns: Market Price, Book Price, Quantity")
                 st.stop()
 
-            # Calculate MTM
             df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
 
-            # Optional additional fields for demo (if not present)
             for col in ['Realized PnL', 'Unrealized PnL', 'Daily Return', 'Rolling Volatility', 'VaR']:
                 if col not in df.columns:
-                    df[col] = 0.0
+                    df[col] = np.nan
 
-            # Filters
             st.subheader("🔍 Filters")
             f1, f2, f3, f4 = st.columns(4)
             with f1:
-                instrument = st.selectbox("Instrument", ["All"] + sorted(df['Instrument Type'].unique()))
+                instrument = st.selectbox("Instrument", ["All"] + sorted(df['Instrument Type'].dropna().unique()))
             with f2:
-                commodity = st.selectbox("Commodity", ["All"] + sorted(df['Commodity'].unique()))
+                commodity = st.selectbox("Commodity", ["All"] + sorted(df['Commodity'].dropna().unique()))
             with f3:
-                direction = st.selectbox("Trade Action", ["All"] + sorted(df['Trade Action'].unique()))
+                direction = st.selectbox("Trade Action", ["All"] + sorted(df['Trade Action'].dropna().unique()))
             with f4:
-                dates = st.selectbox("Trade Date", ["All"] + sorted(df['Trade Date'].astype(str).unique()))
+                dates = st.selectbox("Trade Date", ["All"] + sorted(df['Trade Date'].dropna().astype(str).unique()))
 
             filtered_df = df.copy()
             if instrument != "All":
@@ -117,19 +115,28 @@ else:
             if dates != "All":
                 filtered_df = filtered_df[filtered_df['Trade Date'].astype(str) == dates]
 
-            # Show filtered trade data
             st.subheader(f"Filtered Trade Data ({len(filtered_df)})")
             st.dataframe(filtered_df, use_container_width=True)
 
-            # Metrics
-            st.subheader("📊 Metrics")
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Mark-to-Market", f"${filtered_df['MTM'].sum():,.2f}")
-            col2.metric("1-Day VaR", f"${filtered_df['VaR'].max():,.2f}")
-            col3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
-            col4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
+            with st.expander("📈 MTM, PnL, VaR Analysis", expanded=True):
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Mark-to-Market", f"${filtered_df['MTM'].sum():,.2f}")
+                col2.metric("1-Day VaR", f"${filtered_df['VaR'].max():,.2f}")
+                col3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
+                col4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
+                st.caption(f"Avg Daily Return: {filtered_df['Daily Return'].mean():.4f} | Avg Volatility: {filtered_df['Rolling Volatility'].mean():.4f}")
 
-            st.caption(f"Avg Daily Return: {filtered_df['Daily Return'].mean():.4f} | Avg Volatility: {filtered_df['Rolling Volatility'].mean():.4f}")
+            with st.expander("📊 Exposure by Commodity"):
+                exposure_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.write("**Net Exposure**")
+                    fig_bar = px.bar(exposure_df, x='Commodity', y='MTM', color='Commodity', title="MTM Exposure by Commodity")
+                    st.plotly_chart(fig_bar, use_container_width=True)
+                with col2:
+                    st.write("**Exposure Distribution**")
+                    fig_pie = px.pie(exposure_df, names='Commodity', values='MTM', title="Percentage of Total Exposure")
+                    st.plotly_chart(fig_pie, use_container_width=True)
 
         except Exception as e:
             st.error(f"Error processing file: {e}")
