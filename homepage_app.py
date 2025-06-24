@@ -84,4 +84,7 @@ if not st.session_state.show_dashboard:
     </div>
     """, unsafe_allow_html=True)
 
-# The rest remains unchanged, but the metrics will now render properly
+else:
+    # Rerun and load full dashboard logic if show_dashboard is True
+    import dashboard_main
+    dashboard_main.run_dashboard()
