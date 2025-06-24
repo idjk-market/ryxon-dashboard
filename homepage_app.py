@@ -138,6 +138,13 @@ else:
                     fig_pie = px.pie(exposure_df, names='Commodity', values='MTM', title="Percentage of Total Exposure")
                     st.plotly_chart(fig_pie, use_container_width=True)
 
+            with st.expander("🔢 Historical VaR (Quantile-Based)"):
+                confidence = st.slider("Confidence Level (%)", 90, 99, 95)
+                var_hist = np.percentile(filtered_df['MTM'].dropna(), 100 - confidence)
+                st.metric(f"Historical {confidence}% VaR", f"${var_hist:,.2f}")
+                st.caption("Historical VaR is the loss at a given confidence level based on historical MTM distribution.")
+                st.plotly_chart(px.histogram(filtered_df, x="MTM", nbins=30, title="MTM Distribution"), use_container_width=True)
+
         except Exception as e:
             st.error(f"Error processing file: {e}")
 
