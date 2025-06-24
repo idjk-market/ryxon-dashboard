@@ -1,84 +1,136 @@
-# streamlit_app_master.py
 import streamlit as st
+from PIL import Image
 import pandas as pd
 import numpy as np
-import plotly.express as px
-from io import BytesIO
 
-# Configure page
+# ---- PAGE CONFIG ----
 st.set_page_config(
-    page_title="Ryxon Risk Dashboard",
+    page_title="Ryxon Dashboard",
     page_icon="📊",
     layout="wide"
 )
 
-# Custom CSS for better UI
+# ---- HEADER SECTION ----
 st.markdown("""
-<style>
-    .stFileUploader > div > div > div > button {
-        background-color: #4B0082;
-        color: white;
-    }
-    .stFileUploader > div > div > div > button:hover {
-        background-color: #5a1a8c;
-        color: white;
-    }
-</style>
+    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
+        <img src="https://raw.githubusercontent.com/idjk-market/ryxon-dashboard/main/ryxon_logo.png" width="80">
+        <h1 style="color: #4B0082; font-weight: 900;">Ready to Take Control of Risk?</h1>
+    </div>
 """, unsafe_allow_html=True)
 
-def load_data(uploaded_file):
-    """Handle both CSV and Excel files with robust error checking"""
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            return pd.read_csv(uploaded_file)
-        else:
-            # Read Excel file into bytes first
-            file_bytes = BytesIO(uploaded_file.getvalue())
-            return pd.read_excel(file_bytes, engine='openpyxl')
-    except Exception as e:
-        st.error(f"Error reading file: {str(e)}")
-        st.error("Please ensure you're uploading a valid Excel (xlsx) or CSV file")
-        return None
+# ---- MAIN APP SELECTION ----
+if 'show_dashboard' not in st.session_state:
+    st.session_state.show_dashboard = False
 
-def main():
-    st.title("📊 Ryxon Risk Analytics Dashboard")
+if not st.session_state.show_dashboard:
+    # Landing page content
+    st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
     
-    # File upload with clear instructions
-    uploaded_file = st.file_uploader(
-        "Upload Trade Data (Excel or CSV)",
-        type=["xlsx", "csv"],
-        help="Maximum file size: 200MB. Supported formats: .xlsx, .csv"
-    )
+    # Working launch button
+    if st.button("🚀 Launch Dashboard", type="primary", use_container_width=True):
+        st.session_state.show_dashboard = True
+        st.rerun()
+    
+    # ---- FEATURE HIGHLIGHTS ----
+    st.markdown("## 🔍 Features You'll Love")
+    st.markdown("""
+    <ul style="font-size: 1.1rem; line-height: 1.6;">
+        <li>📊 <strong>Real-time MTM & PnL Tracking</strong> – Upload trades and instantly view live MTM values</li>
+        <li>🛡️ <strong>Value at Risk (VaR)</strong> – Parametric & Historical VaR with confidence control</li>
+        <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
+        <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
+        <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
+    </ul>
+    """, unsafe_allow_html=True)
 
-    if uploaded_file is not None:
-        with st.spinner("Processing your file..."):
-            try:
-                df = load_data(uploaded_file)
-                
-                if df is not None:
-                    # Basic data validation
-                    required_cols = {'Book Price', 'Market Price', 'Quantity'}
-                    if not required_cols.issubset(df.columns):
-                        missing = required_cols - set(df.columns)
-                        st.error(f"Missing required columns: {', '.join(missing)}")
-                        return
-                    
-                    # Calculate metrics
-                    df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
-                    
-                    # Display success message
-                    st.success(f"Successfully loaded {len(df)} trades!")
-                    
-                    # Show data preview
-                    st.subheader("Trade Data Preview")
-                    st.dataframe(df.head(), use_container_width=True)
-                    
-                    # Main dashboard sections would go here
-                    # ... rest of your dashboard code ...
+    # ---- PRODUCT COVERAGE ----
+    st.markdown("## 🏦 Asset Class Coverage")
+    cols = st.columns(4)
+    products = [
+        ("Equity", "📈", "Stocks, ETFs, and equity derivatives"),
+        ("Commodities", "⛏️", "Energy, metals, and agricultural products"),
+        ("Cryptos", "🔗", "Spot and derivatives across major cryptocurrencies"),
+        ("Bonds & Forex", "💱", "Fixed income and currency products")
+    ]
+    
+    for i, (name, icon, desc) in enumerate(products):
+        with cols[i]:
+            st.markdown(f"""
+            <div style="background: white; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: 100%;">
+                <h4 style="color: #4B0082;">{icon} {name}</h4>
+                <p>{desc}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
-            except Exception as e:
-                st.error(f"An unexpected error occurred: {str(e)}")
-                st.error("Please check your file format and try again")
+    # ---- INSTRUMENT COVERAGE ----
+    st.markdown("## 🛠️ Instrument Types")
+    st.markdown("""
+    <div style="background: white; border-radius: 0.5rem; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="padding: 0.5rem;">
+                <p>• Futures</p>
+                <p>• Options</p>
+                <p>• Forwards</p>
+            </div>
+            <div style="padding: 0.5rem;">
+                <p>• Swaps</p>
+                <p>• FX Spots</p>
+                <p>• Interest Rate Derivatives</p>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-if __name__ == "__main__":
-    main()
+    # ---- BLOG TEASER ----
+    st.markdown("---")
+    st.markdown("## 📚 Latest from the Ryxon Blog")
+    st.info("Coming Soon: 'Top 5 Ways Risk Desks Lose Money & How Ryxon Prevents It'")
+
+else:
+    # ---- DASHBOARD CONTENT ----
+    import streamlit as st
+    import pandas as pd
+    import numpy as np
+    
+    st.title("📊 Ryxon Risk Dashboard")
+    
+    # File uploader
+    uploaded_file = st.file_uploader("Upload your trade file (CSV or Excel)", type=["csv", "xlsx"])
+    
+    if uploaded_file:
+        # Process file
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+        
+        # Basic calculations
+        df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
+        
+        # Display metrics
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Trades", len(df))
+        col2.metric("Total MTM", f"${df['MTM'].sum():,.2f}")
+        col3.metric("Unique Instruments", df['Instrument Type'].nunique())
+        
+        # Show data with filters
+        st.subheader("Trade Data")
+        st.dataframe(df)
+        
+        # Simple visualization
+        st.subheader("Exposure by Commodity")
+        fig = px.bar(df.groupby('Commodity')['MTM'].sum().reset_index(), 
+                     x='Commodity', y='MTM', color='Commodity')
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Add back button
+        if st.button("← Back to Home"):
+            st.session_state.show_dashboard = False
+            st.rerun()
+
+# ---- FOOTER ----
+st.markdown("""
+<div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
+    🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
+</div>
+""", unsafe_allow_html=True)
