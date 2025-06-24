@@ -1,98 +1,222 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
+import plotly.express as px
 from io import BytesIO
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
-st.set_page_config(page_title="Ryxon Risk Dashboard", layout="wide")
+# Configure page - THIS MUST COME FIRST
+st.set_page_config(
+    page_title="Ryxon Risk Dashboard",
+    page_icon="📊",
+    layout="wide"
+)
 
 def load_data(uploaded_file):
     try:
         if uploaded_file.name.endswith('.csv'):
             return pd.read_csv(uploaded_file)
         else:
-            return pd.read_excel(BytesIO(uploaded_file.getvalue()), engine='openpyxl')
+            file_bytes = BytesIO(uploaded_file.getvalue())
+            return pd.read_excel(file_bytes, engine='openpyxl')
     except Exception as e:
-        st.error(f"Error reading file: {e}")
+        st.error(f"Error reading file: {str(e)}")
         return None
 
-def calculate_var(df, confidence_level=0.95):
-    pnl_series = df['MTM']
-    if len(pnl_series) > 1:
-        return -np.percentile(pnl_series.dropna(), (1 - confidence_level) * 100)
-    return 0
-
 def main():
-    st.warning("✅ You are running the UPDATED streamlit_app_master.py")
     st.title("📊 Ryxon Risk Analytics Dashboard")
+    
+    uploaded_file = st.file_uploader(
+        "Upload Trade Data (Excel or CSV)",
+        type=["xlsx", "csv"],
+        key="file_uploader"  # Important for reruns
+    )
 
-    uploaded_file = st.file_uploader("📁 Upload Excel or CSV File", type=["xlsx", "csv"])
+    if uploaded_file is not None:
+        with st.spinner("Processing your file..."):
+            try:
+                # Clear any previous data
+                if 'df' in st.session_state:
+                    del st.session_state.df
+                
+                df = load_data(uploaded_file)
+                
+                if df is not None:
+                    # Store in session state to persist across reruns
+                    st.session_state.df = df
+                    
+                    # Calculate core metrics
+                    st.session_state.df['MTM'] = (st.session_state.df['Market Price'] - st.session_state.df['Book Price']) * st.session_state.df['Quantity']
+                    st.session_state.df['Realized PnL'] = np.where(
+                        st.session_state.df['Trade Action'].str.lower() == 'sell',
+                        st.session_state.df['MTM'],
+                        0
+                    )
+                    st.session_state.df['Unrealized PnL'] = np.where(
+                        st.session_state.df['Trade Action'].str.lower() == 'buy',
+                        st.session_state.df['MTM'],
+                        0
+                    )
+                    
+                    # ======================
+                    # 1. TRADE DATA TABLE
+                    # ======================
+                    st.subheader("Trade Data Overview")
+                    st.dataframe(
+                        st.session_state.df.style.format({
+                            'Book Price': '{:.2f}',
+                            'Market Price': '{:.2f}',
+                            'MTM': '{:.2f}',
+                            'Realized PnL': '{:.2f}',
+                            'Unrealized PnL': '{:.2f}',
+                            'Daily Return': '{:.4f}',
+                            'Rolling Std Dev': '{:.4f}',
+                            '1-Day VAR': '{:.2f}'
+                        }),
+                        height=400,
+                        use_container_width=True
+                    )
+                    
+                    # ======================
+                    # 2. MTM CALCULATION
+                    # ======================
+                    with st.expander("🧮 MTM Calculation Details", expanded=True):
+                        st.markdown("""
+                        **Formula:**  
+                        `MTM = (Market Price - Book Price) × Quantity`
+                        """)
+                        
+                        # Show calculation example
+                        mtm_example = st.session_state.df[['Trade ID', 'Commodity', 'Book Price', 'Market Price', 'Quantity', 'MTM']].head()
+                        st.dataframe(mtm_example, use_container_width=True)
+                        
+                        # MTM Distribution chart
+                        st.subheader("MTM Distribution")
+                        fig = px.histogram(st.session_state.df, x='MTM', nbins=20, 
+                                         title="Distribution of MTM Values")
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    # ======================
+                    # 3. PnL ANALYSIS
+                    # ======================
+                    with st.expander("💰 PnL Breakdown (Realized vs Unrealized)", expanded=True):
+                        col1, col2 = st.columns(2)
+                        
+                        # Realized PnL
+                        with col1:
+                            st.metric("Total Realized PnL", 
+                                    f"${st.session_state.df['Realized PnL'].sum():,.2f}")
+                            st.dataframe(
+                                st.session_state.df[st.session_state.df['Realized PnL'] != 0]
+                                [['Trade ID', 'Commodity', 'Realized PnL']],
+                                height=300,
+                                use_container_width=True
+                            )
+                        
+                        # Unrealized PnL
+                        with col2:
+                            st.metric("Total Unrealized PnL", 
+                                    f"${st.session_state.df['Unrealized PnL'].sum():,.2f}")
+                            st.dataframe(
+                                st.session_state.df[st.session_state.df['Unrealized PnL'] != 0]
+                                [['Trade ID', 'Commodity', 'Unrealized PnL']],
+                                height=300,
+                                use_container_width=True
+                            )
+                    
+                    # ======================
+                    # 4. VaR ANALYSIS
+                    # ======================
+                    with st.expander("📉 Value at Risk (VaR) Analysis", expanded=True):
+                        # VaR calculation function
+                        def calculate_var(confidence_level=95):
+                            st.session_state.df['Daily Return'] = st.session_state.df['MTM'].pct_change().fillna(0)
+                            sorted_returns = np.sort(st.session_state.df['Daily Return'].dropna())
+                            var_percentile = 100 - confidence_level
+                            return -np.percentile(sorted_returns, var_percentile) * st.session_state.df['MTM'].sum()
+                        
+                        var_confidence = st.slider(
+                            "Confidence Level", 
+                            min_value=90, 
+                            max_value=99, 
+                            value=95,
+                            key="var_conf"
+                        )
+                        
+                        var_value = calculate_var(var_confidence)
+                        
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric(
+                                f"Portfolio VaR ({var_confidence}%)",
+                                f"${abs(var_value):,.2f}",
+                                help="Potential maximum loss at given confidence level"
+                            )
+                        
+                        with col2:
+                            st.write("**Calculation Method:**")
+                            st.write("Historical VaR based on daily MTM returns")
+                        
+                        # Show worst returns
+                        st.subheader("Worst Daily Returns")
+                        worst_returns = st.session_state.df.nsmallest(5, 'Daily Return')
+                        st.dataframe(worst_returns[['Trade ID', 'Commodity', 'Daily Return']], 
+                                    use_container_width=True)
+                    
+                    # ======================
+                    # 5. HISTORICAL VaR
+                    # ======================
+                    with st.expander("📊 Historical VaR Simulation", expanded=True):
+                        hist_conf = st.slider(
+                            "Confidence Level", 
+                            min_value=90, 
+                            max_value=99, 
+                            value=95,
+                            key="hist_conf"
+                        )
+                        
+                        # Ensure we have daily returns calculated
+                        if 'Daily Return' not in st.session_state.df.columns:
+                            st.session_state.df['Daily Return'] = st.session_state.df['MTM'].pct_change().fillna(0)
+                        
+                        sorted_returns = np.sort(st.session_state.df['Daily Return'].dropna())
+                        
+                        if len(sorted_returns) > 0:
+                            var_percentile = 100 - hist_conf
+                            hist_var = -np.percentile(sorted_returns, var_percentile) * st.session_state.df['MTM'].sum()
+                            
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.metric(
+                                    f"Historical VaR ({hist_conf}%)",
+                                    f"${abs(hist_var):,.2f}"
+                                )
+                            
+                            with col2:
+                                st.write("**Return Percentiles:**")
+                                st.write(f"5th percentile: {np.percentile(sorted_returns, 5):.4f}")
+                                st.write(f"1st percentile: {np.percentile(sorted_returns, 1):.4f}")
+                            
+                            # Plot distribution
+                            fig = px.histogram(
+                                st.session_state.df,
+                                x='Daily Return',
+                                nbins=30,
+                                title="Distribution of Daily Returns"
+                            )
+                            fig.add_vline(
+                                x=-abs(hist_var)/st.session_state.df['MTM'].sum(),
+                                line_dash="dash",
+                                line_color="red",
+                                annotation_text=f"VaR {hist_conf}%",
+                                annotation_position="top left"
+                            )
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.warning("Insufficient data for Historical VaR calculation")
 
-    if uploaded_file:
-        df = load_data(uploaded_file)
-
-        if df is not None:
-            # MTM Calculation
-            df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
-
-            # KPIs
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Total Trades", len(df))
-            col2.metric("Total MTM", f"${df['MTM'].sum():,.2f}")
-            col3.metric("Unique Instruments", df['Instrument Type'].nunique())
-
-            # Interactive Trade Table
-            st.subheader("📋 Trade Data Table with Excel-like Filters")
-            gb = GridOptionsBuilder.from_dataframe(df)
-            gb.configure_grid_options(suppressMenu=False)
-            gb.configure_default_column(filter=True, sortable=True, resizable=True, floatingFilter=True)
-            for col in ["Commodity", "Instrument Type", "Trade Action"]:
-                gb.configure_column(col, filter="agSetColumnFilter", floatingFilter=True)
-            gb.configure_column("Quantity", filter="agNumberColumnFilter", floatingFilter=True)
-            gb.configure_column("MTM", filter="agNumberColumnFilter", floatingFilter=True)
-            gridOptions = gb.build()
-
-            AgGrid(
-                df,
-                gridOptions=gridOptions,
-                update_mode=GridUpdateMode.NO_UPDATE,
-                allow_unsafe_jscode=True,
-                enable_enterprise_modules=True,
-                fit_columns_on_grid_load=True,
-                use_container_width=True,
-                height=500
-            )
-
-            # 🔽 Expandable: MTM Summary
-            with st.expander("📈 MTM Summary", expanded=False):
-                st.write("**Total MTM:**", round(df['MTM'].sum(), 2))
-                st.write("**Average MTM:**", round(df['MTM'].mean(), 2))
-                st.write("**Top MTM Trades:**")
-                st.dataframe(df.nlargest(5, 'MTM')[['Trade ID', 'Commodity', 'MTM']])
-
-            # 🔽 Expandable: PnL Analysis
-            with st.expander("💰 Realized & Unrealized PnL", expanded=False):
-                if 'Realized PnL' in df.columns and 'Unrealized PnL' in df.columns:
-                    st.write("**Total Realized PnL:**", round(df['Realized PnL'].sum(), 2))
-                    st.write("**Total Unrealized PnL:**", round(df['Unrealized PnL'].sum(), 2))
-                    st.bar_chart(df[['Realized PnL', 'Unrealized PnL']])
-                else:
-                    st.warning("Columns 'Realized PnL' and 'Unrealized PnL' not found in uploaded data.")
-
-            # 🔽 Expandable: Value at Risk
-            with st.expander("📉 Value at Risk (VaR)", expanded=False):
-                var_95 = calculate_var(df, 0.95)
-                var_99 = calculate_var(df, 0.99)
-                st.metric("VaR (95%)", f"${var_95:,.2f}")
-                st.metric("VaR (99%)", f"${var_99:,.2f}")
-                st.line_chart(df['MTM'])
-
-            # 🔽 Expandable: Historical VaR
-            with st.expander("📊 Historical VaR", expanded=False):
-                hist_var = df['MTM'].quantile([0.01, 0.05, 0.10])
-                st.write(hist_var.to_frame("Historical VaR Levels"))
-                st.area_chart(df['MTM'])
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")
+                st.error("Please check your file format and try again")
 
 if __name__ == "__main__":
     main()
