@@ -93,12 +93,31 @@ else:
             st.write("Coming soon...")
 
         # ---- REPORTING ----
-        st.markdown("### 📑 Generate Risk Reports")
-        reporting_url = "https://ryxon-dashboard-idjk-market.streamlit.app/reporting_app"
-        st.markdown(f"""
-        <a href="{reporting_url}" target="_blank">
-            <button style='padding:10px 18px; background:#4B0082; color:white; border:none; border-radius:6px; font-weight:600;'>📄 Go to Reporting Module</button>
-        </a>
-        """, unsafe_allow_html=True)
+        st.markdown("### 📑 Risk Reporting")
+        with st.expander("📝 Risk Summary Report"):
+            st.write("""
+            This report provides a snapshot of portfolio risk:
+            - Total MTM: ${:,.2f}
+            - Total Realized PnL: ${:,.2f}
+            - Total Unrealized PnL: ${:,.2f}
+            - 1-Day Historical VaR (95%): ${:,.2f}
+            """.format(mtm_total, realized_pnl, unrealized_pnl, var_95))
+
+        with st.expander("📊 Exposure Breakdown Report"):
+            if 'Commodity' in df.columns:
+                exposure_df = df.groupby('Commodity')['MTM'].sum().reset_index()
+                fig = px.bar(exposure_df, x='Commodity', y='MTM', title='Exposure by Commodity')
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No 'Commodity' column found for exposure analysis.")
+
+        with st.expander("📅 Daily Performance Report"):
+            if 'Trade Date' in df.columns:
+                df['Trade Date'] = pd.to_datetime(df['Trade Date'])
+                perf_df = df.groupby('Trade Date').agg({'MTM': 'sum', 'Realized PnL': 'sum'}).reset_index()
+                fig = px.line(perf_df, x='Trade Date', y=['MTM', 'Realized PnL'], title="Daily MTM and PnL")
+                st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No 'Trade Date' column found for daily performance chart.")
     else:
         st.warning("Please upload a valid Excel trade file to proceed.")
