@@ -1,160 +1,101 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from io import BytesIO
-from PIL import Image
-from datetime import datetime
+# ---- ADD THIS AFTER YOUR EXISTING IMPORTS ----
+from scipy.stats import norm
 import numpy as np
 
-# ---- PAGE CONFIG ----
-st.set_page_config(
-    page_title="Ryxon Dashboard",
-    page_icon="📊",
-    layout="wide"
-)
-
-# ---- SESSION STATE INIT ----
-if 'show_dashboard' not in st.session_state:
-    st.session_state.show_dashboard = False
-
-# ---- LANDING PAGE ----
-if not st.session_state.show_dashboard:
-    st.markdown("""
-        <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
-            <img src="https://raw.githubusercontent.com/idjk-market/ryxon-dashboard/main/ryxon_logo.png" width="80">
-            <h1 style="color: #4B0082; font-weight: 900;">Ready to Take Control of Risk?</h1>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
-
-    if st.button("🚀 Launch Dashboard", type="primary", use_container_width=True):
-        st.session_state.show_dashboard = True
-        st.rerun()
-
-    st.markdown("## 🔍 Features You'll Love")
-    st.markdown("""
-    <ul style="font-size: 1.1rem; line-height: 1.6;">
-        <li>📊 <strong>Real-time MTM & PnL Tracking</strong> – Upload trades and instantly view live MTM values</li>
-        <li>🛡️ <strong>Value at Risk (VaR)</strong> – Parametric & Historical VaR with confidence control</li>
-        <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
-        <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
-        <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
-        <li>📊 <strong>Exposure Analysis</strong> – Visualize by commodity/instrument</li>
-        <li>📄 <strong>Performance Over Time</strong> – Daily MTM & PnL tracking</li>
-    </ul>
-    """, unsafe_allow_html=True)
-
-    st.markdown("## 🏦 Asset Class Coverage")
-    cols = st.columns(4)
-    products = [
-        ("Equity", "📈", "Stocks, ETFs, and equity derivatives"),
-        ("Commodities", "⛏️", "Energy, metals, and agricultural products"),
-        ("Cryptos", "🔗", "Spot and derivatives across major cryptocurrencies"),
-        ("Bonds & Forex", "💱", "Fixed income and currency products")
-    ]
-    for i, (name, icon, desc) in enumerate(products):
-        with cols[i]:
-            st.markdown(f"""
-            <div style="background: white; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: 100%;">
-                <h4 style="color: #4B0082;">{icon} {name}</h4>
-                <p>{desc}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-    st.markdown("""
-    <div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
-        🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
-    </div>
-    """, unsafe_allow_html=True)
-
-# ---- DASHBOARD SECTION ----
-else:
-    st.title("📊 Ryxon Risk Dashboard")
-    uploaded_file = st.file_uploader("Upload your trade file (CSV or Excel)", type=["csv", "xlsx"])
-
-    if uploaded_file:
-        if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
-
-        df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
-
-        for col in ['Realized PnL', 'Unrealized PnL', 'Daily Return', 'Rolling Volatility', 'VaR']:
-            if col not in df.columns:
-                df[col] = np.nan
-
-        tab1, tab2 = st.tabs(["📊 Main Dashboard", "🔍 Advanced Risk Analytics"])
-
+# ---- ADD THIS IN THE DASHBOARD SECTION (AFTER UPLOADED_FILE CHECK) ----
+if uploaded_file:
+    try:
+        # [Keep all your existing code until after the stress testing section...]
+        
+        # =============================================
+        # NEW ADVANCED RISK ANALYTICS TAB
+        # =============================================
+        tab1, tab2 = st.tabs(["Main Dashboard", "Advanced Risk Analytics"])
+        
         with tab1:
-            st.subheader("🔍 Filters")
-            f1, f2, f3, f4 = st.columns(4)
-            with f1:
-                instrument = st.selectbox("Instrument", ["All"] + sorted(df['Instrument Type'].dropna().unique()))
-            with f2:
-                commodity = st.selectbox("Commodity", ["All"] + sorted(df['Commodity'].dropna().unique()))
-            with f3:
-                direction = st.selectbox("Trade Action", ["All"] + sorted(df['Trade Action'].dropna().unique()))
-            with f4:
-                dates = st.selectbox("Trade Date", ["All"] + sorted(df['Trade Date'].dropna().astype(str).unique()))
-
-            filtered_df = df.copy()
-            if instrument != "All":
-                filtered_df = filtered_df[filtered_df['Instrument Type'] == instrument]
-            if commodity != "All":
-                filtered_df = filtered_df[filtered_df['Commodity'] == commodity]
-            if direction != "All":
-                filtered_df = filtered_df[filtered_df['Trade Action'] == direction]
-            if dates != "All":
-                filtered_df = filtered_df[filtered_df['Trade Date'].astype(str) == dates]
-
-            st.session_state.filtered_df = filtered_df
-
-            st.subheader(f"Filtered Trade Data ({len(filtered_df)})")
-            st.dataframe(filtered_df, use_container_width=True)
-
-            with st.expander("📈 MTM, PnL, VaR Analysis", expanded=True):
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Mark-to-Market", f"${filtered_df['MTM'].sum():,.2f}")
-                col2.metric("1-Day VaR", f"${filtered_df['VaR'].max():,.2f}")
-                col3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
-                col4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
-
-            with st.expander("📊 Exposure by Commodity"):
-                exposure_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig_bar = px.bar(exposure_df, x='Commodity', y='MTM', color='Commodity')
-                    st.plotly_chart(fig_bar, use_container_width=True)
-                with col2:
-                    fig_pie = px.pie(exposure_df, names='Commodity', values='MTM')
-                    st.plotly_chart(fig_pie, use_container_width=True)
-
+            # [All your existing dashboard content remains exactly the same]
+            pass
+            
         with tab2:
-            st.subheader("🔍 Advanced Risk Analytics")
-            adv_df = st.session_state.get("filtered_df", df)
-
-            with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
-                confidence = st.slider("Confidence Level", 90, 99, 95)
-                if 'MTM' in adv_df.columns:
-                    var = np.percentile(adv_df['MTM'].dropna(), 100 - confidence)
-                    st.metric("Portfolio VaR", f"${var:,.2f}")
-
-            with st.expander("🎲 Monte Carlo Simulation"):
-                sims = st.number_input("Simulations", 100, 5000, 1000)
-                days = st.number_input("Days", 1, 30, 10)
-                vol = np.std(adv_df['MTM'].dropna())
-                simulated = np.random.normal(adv_df['MTM'].mean(), vol, size=(sims, days))
-                portfolio_returns = simulated.sum(axis=1)
-                st.plotly_chart(px.histogram(portfolio_returns, nbins=50, title="Simulated Portfolio PnL"), use_container_width=True)
-
-            with st.expander("📉 Rolling Volatility"):
-                window = st.slider("Rolling Window", 3, 30, 5)
-                if 'MTM' in adv_df.columns:
-                    adv_df['Vol'] = adv_df['MTM'].rolling(window).std()
-                    st.line_chart(adv_df['Vol'])
-
-    if st.button("\u2190 Back to Home"):
-        st.session_state.show_dashboard = False
-        st.rerun()
+            st.header("🚨 Advanced Risk Analytics")
+            
+            # 1. PORTFOLIO VaR (Variance-Covariance)
+            st.subheader("📉 Portfolio VaR (Variance-Covariance)")
+            var_conf = st.slider("Confidence Level", 90, 99, 95, key='var_conf') / 100
+            
+            if len(filtered_df) > 1:
+                # Calculate correlations and volatilities
+                corr_matrix = filtered_df.pivot_table(index='Trade Date', columns='Commodity', values='MTM', aggfunc='sum').corr()
+                volatilities = filtered_df.groupby('Commodity')['MTM'].std()
+                portfolio_var = np.sqrt(
+                    filtered_df.groupby('Commodity')['MTM'].sum().T @ 
+                    (corr_matrix * volatilities * volatilities.reshape(-1,1)) @ 
+                    filtered_df.groupby('Commodity')['MTM'].sum()
+                ) * norm.ppf(var_conf)
+                
+                col1, col2 = st.columns(2)
+                col1.metric(f"Portfolio VaR ({int(var_conf*100)}%)", f"${abs(portfolio_var):,.2f}")
+                
+                # Correlation heatmap
+                fig_corr = px.imshow(corr_matrix, text_auto=True, aspect="auto")
+                col2.plotly_chart(fig_corr, use_container_width=True)
+            else:
+                st.warning("Need at least 2 positions for portfolio VaR")
+            
+            # 2. MONTE CARLO SIMULATION
+            st.subheader("🎲 Monte Carlo Simulation")
+            mc_col1, mc_col2 = st.columns(2)
+            n_simulations = mc_col1.number_input("Number of Simulations", 100, 10000, 1000)
+            days = mc_col2.number_input("Time Horizon (Days)", 1, 30, 1)
+            
+            if st.button("Run Simulation"):
+                with st.spinner("Running Monte Carlo..."):
+                    # Generate random returns based on historical volatility
+                    returns = np.random.normal(
+                        loc=filtered_df['MTM'].mean(),
+                        scale=filtered_df['MTM'].std(),
+                        size=(n_simulations, days)
+                    )
+                    
+                    # Calculate portfolio paths
+                    portfolio_paths = np.cumsum(returns, axis=1)
+                    
+                    # Plot results
+                    fig_mc = px.line(
+                        pd.DataFrame(portfolio_paths.T),
+                        title=f"Monte Carlo Simulation ({n_simulations} paths)"
+                    )
+                    fig_mc.update_layout(showlegend=False)
+                    st.plotly_chart(fig_mc, use_container_width=True)
+                    
+                    # Show VaR from simulation
+                    final_values = portfolio_paths[:,-1]
+                    mc_var = np.percentile(final_values, 100*(1-var_conf))
+                    st.metric(f"Simulated {int(var_conf*100)}% VaR ({days}D)", 
+                             f"${abs(mc_var):,.2f}")
+            
+            # 3. ROLLING VOLATILITY
+            st.subheader("📈 Rolling Volatility Analysis")
+            window = st.slider("Rolling Window (Days)", 5, 60, 21)
+            
+            if 'Trade Date' in filtered_df.columns:
+                # Calculate daily MTM
+                daily_mtm = filtered_df.groupby('Trade Date')['MTM'].sum().sort_index()
+                
+                # Calculate rolling volatility
+                rolling_vol = daily_mtm.rolling(window=window).std()
+                
+                # Plot
+                fig_vol = px.line(
+                    rolling_vol, 
+                    title=f"{window}-Day Rolling Volatility",
+                    labels={"value": "Volatility", "Trade Date": "Date"}
+                )
+                st.plotly_chart(fig_vol, use_container_width=True)
+            else:
+                st.warning("Need Trade Date column for volatility analysis")
+                
+        # [Keep all your existing code after this...]
+        
+    except Exception as e:
+        st.error(f"Error in advanced analytics: {str(e)}")
