@@ -1,7 +1,9 @@
 import streamlit as st
-from PIL import Image
 import pandas as pd
 import numpy as np
+import plotly.express as px
+from io import BytesIO
+from PIL import Image
 
 # ---- PAGE CONFIG ----
 st.set_page_config(
@@ -40,6 +42,7 @@ if not st.session_state.show_dashboard:
         <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
         <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
         <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
+        <li>📊 <strong>Exposure Analysis</strong> – Visualize by commodity/instrument</li>
     </ul>
     """, unsafe_allow_html=True)
 
@@ -62,36 +65,15 @@ if not st.session_state.show_dashboard:
             </div>
             """, unsafe_allow_html=True)
 
-    # ---- INSTRUMENT COVERAGE ----
-    st.markdown("## 🛠️ Instrument Types")
+    # ---- FOOTER ----
     st.markdown("""
-    <div style="background: white; border-radius: 0.5rem; padding: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
-            <div style="padding: 0.5rem;">
-                <p>• Futures</p>
-                <p>• Options</p>
-                <p>• Forwards</p>
-            </div>
-            <div style="padding: 0.5rem;">
-                <p>• Swaps</p>
-                <p>• FX Spots</p>
-                <p>• Interest Rate Derivatives</p>
-            </div>
-        </div>
+    <div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
+        🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
     </div>
     """, unsafe_allow_html=True)
 
-    # ---- BLOG TEASER ----
-    st.markdown("---")
-    st.markdown("## 📚 Latest from the Ryxon Blog")
-    st.info("Coming Soon: 'Top 5 Ways Risk Desks Lose Money & How Ryxon Prevents It'")
-
 else:
     # ---- DASHBOARD CONTENT ----
-    import streamlit as st
-    import pandas as pd
-    import numpy as np
-    
     st.title("📊 Ryxon Risk Dashboard")
     
     # File uploader
@@ -117,20 +99,53 @@ else:
         st.subheader("Trade Data")
         st.dataframe(df)
         
-        # Simple visualization
+        # ===========================================
+        # EXPOSURE BY COMMODITY SECTION (NEW)
+        # ===========================================
         st.subheader("Exposure by Commodity")
-        fig = px.bar(df.groupby('Commodity')['MTM'].sum().reset_index(), 
-                     x='Commodity', y='MTM', color='Commodity')
-        st.plotly_chart(fig, use_container_width=True)
+        
+        # Calculate exposure
+        exposure_df = df.groupby('Commodity')['MTM'].sum().reset_index()
+        
+        # Create two columns for charts
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Bar chart of exposure by commodity
+            st.write("**Net Exposure**")
+            fig_bar = px.bar(
+                exposure_df,
+                x='Commodity',
+                y='MTM',
+                color='Commodity',
+                title="MTM Exposure by Commodity"
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+        
+        with col2:
+            # Pie chart of exposure distribution
+            st.write("**Exposure Distribution**")
+            fig_pie = px.pie(
+                exposure_df,
+                names='Commodity',
+                values='MTM',
+                title="Percentage of Total Exposure"
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+        
+        # Additional exposure metrics
+        st.write("**Detailed Exposure Metrics**")
+        exposure_metrics = exposure_df.copy()
+        exposure_metrics['% of Total'] = (exposure_metrics['MTM'] / exposure_metrics['MTM'].abs().sum()) * 100
+        st.dataframe(
+            exposure_metrics.style.format({
+                'MTM': '${:,.2f}',
+                '% of Total': '{:.1f}%'
+            }),
+            use_container_width=True
+        )
         
         # Add back button
         if st.button("← Back to Home"):
             st.session_state.show_dashboard = False
             st.rerun()
-
-# ---- FOOTER ----
-st.markdown("""
-<div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
-    🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
-</div>
-""", unsafe_allow_html=True)
