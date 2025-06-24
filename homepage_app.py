@@ -48,22 +48,39 @@ else:
 
         # ---- FILTERED TRADE DATA TABLE ----
         st.markdown("### 📋 Filtered Trade Data")
-        st.dataframe(df, use_container_width=True)
+
+        # Add column filtering dynamically
+        filter_columns = df.columns.tolist()
+        filter_values = {}
+        with st.expander("🔍 Apply Filters to Trade Data"):
+            for col in filter_columns:
+                if df[col].dtype == 'object' or df[col].dtype.name == 'category':
+                    options = ['All'] + sorted(df[col].dropna().unique().tolist())
+                    selected = st.selectbox(f"{col}", options, key=col)
+                    if selected != 'All':
+                        filter_values[col] = selected
+
+        # Apply filters
+        filtered_df = df.copy()
+        for col, val in filter_values.items():
+            filtered_df = filtered_df[filtered_df[col] == val]
+
+        st.dataframe(filtered_df, use_container_width=True)
 
         # ---- CALCULATE METRICS ----
-        df['MTM'] = df.get('MTM', 0)
-        df['Realized PnL'] = df.get('Realized PnL', 0)
-        df['Unrealized PnL'] = df.get('Unrealized PnL', 0)
+        filtered_df['MTM'] = filtered_df.get('MTM', 0)
+        filtered_df['Realized PnL'] = filtered_df.get('Realized PnL', 0)
+        filtered_df['Unrealized PnL'] = filtered_df.get('Unrealized PnL', 0)
 
-        mtm_total = df['MTM'].sum()
-        realized_pnl = df['Realized PnL'].sum()
-        unrealized_pnl = df['Unrealized PnL'].sum()
+        mtm_total = filtered_df['MTM'].sum()
+        realized_pnl = filtered_df['Realized PnL'].sum()
+        unrealized_pnl = filtered_df['Unrealized PnL'].sum()
 
         try:
-            returns = df['MTM'].pct_change().dropna()
+            returns = filtered_df['MTM'].pct_change().dropna()
             avg_return = returns.mean()
             volatility = returns.std()
-            var_95 = np.percentile(df['MTM'].dropna(), 5)
+            var_95 = np.percentile(filtered_df['MTM'].dropna(), 5)
         except:
             avg_return = 0
             volatility = 0
@@ -84,7 +101,7 @@ else:
             with st.expander("🧪 Monte Carlo Simulation"):
                 st.write("Coming soon...")
             with st.expander("📉 Rolling Volatility"):
-                st.line_chart(df['MTM'])
+                st.line_chart(filtered_df['MTM'])
             with st.expander("🚨 Stress Testing"):
                 st.write("Coming soon...")
             with st.expander("📊 Scenario Analysis"):
