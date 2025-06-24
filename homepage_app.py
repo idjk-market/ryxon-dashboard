@@ -32,7 +32,6 @@ if not st.session_state.show_dashboard:
         st.session_state.show_dashboard = True
         st.rerun()
 
-    # ---- FEATURES ----
     st.markdown("## 🔍 Features You'll Love")
     st.markdown("""
     <ul style="font-size: 1.1rem; line-height: 1.6;">
@@ -46,7 +45,6 @@ if not st.session_state.show_dashboard:
     </ul>
     """, unsafe_allow_html=True)
 
-    # ---- PRODUCT COVERAGE ----
     st.markdown("## 🏦 Asset Class Coverage")
     cols = st.columns(4)
     products = [
@@ -76,95 +74,86 @@ else:
     uploaded_file = st.file_uploader("Upload your trade file (CSV or Excel)", type=["csv", "xlsx"])
 
     if uploaded_file:
-        try:
-            if uploaded_file.name.endswith('.csv'):
-                df = pd.read_csv(uploaded_file)
-            else:
-                df = pd.read_excel(uploaded_file)
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
 
-            required_cols = ['Market Price', 'Book Price', 'Quantity']
-            if not all(col in df.columns for col in required_cols):
-                st.error("Missing required columns: Market Price, Book Price, Quantity")
-                st.stop()
+        df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
 
-            df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
+        for col in ['Realized PnL', 'Unrealized PnL', 'Daily Return', 'Rolling Volatility', 'VaR']:
+            if col not in df.columns:
+                df[col] = np.nan
 
-            for col in ['Realized PnL', 'Unrealized PnL', 'Daily Return', 'Rolling Volatility', 'VaR']:
-                if col not in df.columns:
-                    df[col] = np.nan
+        tab1, tab2 = st.tabs(["📊 Main Dashboard", "🔍 Advanced Risk Analytics"])
 
-            tab1, tab2 = st.tabs(["📊 Main Dashboard", "🔍 Advanced Risk Analytics"])
+        with tab1:
+            st.subheader("🔍 Filters")
+            f1, f2, f3, f4 = st.columns(4)
+            with f1:
+                instrument = st.selectbox("Instrument", ["All"] + sorted(df['Instrument Type'].dropna().unique()))
+            with f2:
+                commodity = st.selectbox("Commodity", ["All"] + sorted(df['Commodity'].dropna().unique()))
+            with f3:
+                direction = st.selectbox("Trade Action", ["All"] + sorted(df['Trade Action'].dropna().unique()))
+            with f4:
+                dates = st.selectbox("Trade Date", ["All"] + sorted(df['Trade Date'].dropna().astype(str).unique()))
 
-            with tab1:
-                st.subheader("🔍 Filters")
-                f1, f2, f3, f4 = st.columns(4)
-                with f1:
-                    instrument = st.selectbox("Instrument", ["All"] + sorted(df['Instrument Type'].dropna().unique()))
-                with f2:
-                    commodity = st.selectbox("Commodity", ["All"] + sorted(df['Commodity'].dropna().unique()))
-                with f3:
-                    direction = st.selectbox("Trade Action", ["All"] + sorted(df['Trade Action'].dropna().unique()))
-                with f4:
-                    dates = st.selectbox("Trade Date", ["All"] + sorted(df['Trade Date'].dropna().astype(str).unique()))
+            filtered_df = df.copy()
+            if instrument != "All":
+                filtered_df = filtered_df[filtered_df['Instrument Type'] == instrument]
+            if commodity != "All":
+                filtered_df = filtered_df[filtered_df['Commodity'] == commodity]
+            if direction != "All":
+                filtered_df = filtered_df[filtered_df['Trade Action'] == direction]
+            if dates != "All":
+                filtered_df = filtered_df[filtered_df['Trade Date'].astype(str) == dates]
 
-                filtered_df = df.copy()
-                if instrument != "All":
-                    filtered_df = filtered_df[filtered_df['Instrument Type'] == instrument]
-                if commodity != "All":
-                    filtered_df = filtered_df[filtered_df['Commodity'] == commodity]
-                if direction != "All":
-                    filtered_df = filtered_df[filtered_df['Trade Action'] == direction]
-                if dates != "All":
-                    filtered_df = filtered_df[filtered_df['Trade Date'].astype(str) == dates]
+            st.session_state.filtered_df = filtered_df
 
-                st.session_state.filtered_df = filtered_df
+            st.subheader(f"Filtered Trade Data ({len(filtered_df)})")
+            st.dataframe(filtered_df, use_container_width=True)
 
-                st.subheader(f"Filtered Trade Data ({len(filtered_df)})")
-                st.dataframe(filtered_df, use_container_width=True)
+            with st.expander("📈 MTM, PnL, VaR Analysis", expanded=True):
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("Mark-to-Market", f"${filtered_df['MTM'].sum():,.2f}")
+                col2.metric("1-Day VaR", f"${filtered_df['VaR'].max():,.2f}")
+                col3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
+                col4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
 
-                with st.expander("📈 MTM, PnL, VaR Analysis", expanded=True):
-                    col1, col2, col3, col4 = st.columns(4)
-                    col1.metric("Mark-to-Market", f"${filtered_df['MTM'].sum():,.2f}")
-                    col2.metric("1-Day VaR", f"${filtered_df['VaR'].max():,.2f}")
-                    col3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
-                    col4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
+            with st.expander("📊 Exposure by Commodity"):
+                exposure_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
+                col1, col2 = st.columns(2)
+                with col1:
+                    fig_bar = px.bar(exposure_df, x='Commodity', y='MTM', color='Commodity')
+                    st.plotly_chart(fig_bar, use_container_width=True)
+                with col2:
+                    fig_pie = px.pie(exposure_df, names='Commodity', values='MTM')
+                    st.plotly_chart(fig_pie, use_container_width=True)
 
-                with st.expander("📊 Exposure by Commodity"):
-                    exposure_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        fig_bar = px.bar(exposure_df, x='Commodity', y='MTM', color='Commodity')
-                        st.plotly_chart(fig_bar, use_container_width=True)
-                    with col2:
-                        fig_pie = px.pie(exposure_df, names='Commodity', values='MTM')
-                        st.plotly_chart(fig_pie, use_container_width=True)
+        with tab2:
+            st.subheader("🔍 Advanced Risk Analytics")
+            adv_df = st.session_state.get("filtered_df", df)
 
-            with tab2:
-                st.subheader("🔍 Advanced Risk Analytics")
-                adv_df = st.session_state.get("filtered_df", df)
+            with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
+                confidence = st.slider("Confidence Level", 90, 99, 95)
+                if 'MTM' in adv_df.columns:
+                    var = np.percentile(adv_df['MTM'].dropna(), 100 - confidence)
+                    st.metric("Portfolio VaR", f"${var:,.2f}")
 
-                with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
-                    confidence = st.slider("Confidence Level", 90, 99, 95)
-                    if 'MTM' in adv_df.columns:
-                        var = np.percentile(adv_df['MTM'].dropna(), 100 - confidence)
-                        st.metric("Portfolio VaR", f"${var:,.2f}")
+            with st.expander("🎲 Monte Carlo Simulation"):
+                sims = st.number_input("Simulations", 100, 5000, 1000)
+                days = st.number_input("Days", 1, 30, 10)
+                vol = np.std(adv_df['MTM'].dropna())
+                simulated = np.random.normal(adv_df['MTM'].mean(), vol, size=(sims, days))
+                portfolio_returns = simulated.sum(axis=1)
+                st.plotly_chart(px.histogram(portfolio_returns, nbins=50, title="Simulated Portfolio PnL"), use_container_width=True)
 
-                with st.expander("🎲 Monte Carlo Simulation"):
-                    sims = st.number_input("Simulations", 100, 5000, 1000)
-                    days = st.number_input("Days", 1, 30, 10)
-                    vol = np.std(adv_df['MTM'].dropna())
-                    simulated = np.random.normal(adv_df['MTM'].mean(), vol, size=(sims, days))
-                    portfolio_returns = simulated.sum(axis=1)
-                    st.plotly_chart(px.histogram(portfolio_returns, nbins=50, title="Simulated Portfolio PnL"), use_container_width=True)
-
-                with st.expander("📉 Rolling Volatility"):
-                    window = st.slider("Rolling Window", 3, 30, 5)
-                    if 'MTM' in adv_df.columns:
-                        adv_df['Vol'] = adv_df['MTM'].rolling(window).std()
-                        st.line_chart(adv_df['Vol'])
-
-        except Exception as e:
-            st.error(f"Error processing file: {e}")
+            with st.expander("📉 Rolling Volatility"):
+                window = st.slider("Rolling Window", 3, 30, 5)
+                if 'MTM' in adv_df.columns:
+                    adv_df['Vol'] = adv_df['MTM'].rolling(window).std()
+                    st.line_chart(adv_df['Vol'])
 
     if st.button("\u2190 Back to Home"):
         st.session_state.show_dashboard = False
