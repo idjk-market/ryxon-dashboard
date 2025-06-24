@@ -1,3 +1,5 @@
+st.warning("✅ Running latest version with MTM, PnL, VaR sections")
+
 import streamlit as st
 import pandas as pd
 import numpy as np
