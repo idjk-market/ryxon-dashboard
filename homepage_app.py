@@ -119,78 +119,80 @@ else:
             st.subheader(f"Filtered Trade Data ({len(filtered_df)})")
             st.dataframe(filtered_df, use_container_width=True)
 
-            with st.expander("📈 MTM, PnL, VaR Analysis", expanded=True):
-                col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Mark-to-Market", f"${filtered_df['MTM'].sum():,.2f}")
-                col2.metric("1-Day VaR", f"${filtered_df['VaR'].max():,.2f}")
-                col3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
-                col4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
-                st.caption(f"Avg Daily Return: {filtered_df['Daily Return'].mean():.4f} | Avg Volatility: {filtered_df['Rolling Volatility'].mean():.4f}")
+            col_main, col_risk = st.columns([2, 2])
 
-            with st.expander("📊 Exposure by Commodity"):
-                exposure_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
-                col1, col2 = st.columns(2)
-                with col1:
-                    fig_bar = px.bar(exposure_df, x='Commodity', y='MTM', color='Commodity')
-                    st.plotly_chart(fig_bar, use_container_width=True)
-                with col2:
-                    fig_pie = px.pie(exposure_df, names='Commodity', values='MTM')
-                    st.plotly_chart(fig_pie, use_container_width=True)
+            with col_main:
+                with st.expander("📈 MTM, PnL, VaR Analysis", expanded=True):
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("Mark-to-Market", f"${filtered_df['MTM'].sum():,.2f}")
+                    col2.metric("1-Day VaR", f"${filtered_df['VaR'].max():,.2f}")
+                    col3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
+                    col4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
+                    st.caption(f"Avg Daily Return: {filtered_df['Daily Return'].mean():.4f} | Avg Volatility: {filtered_df['Rolling Volatility'].mean():.4f}")
 
-            with st.expander("🔢 Historical VaR (Quantile-Based)"):
-                confidence = st.slider("Confidence Level (%)", 90, 99, 95)
-                var_hist = np.percentile(filtered_df['MTM'].dropna(), 100 - confidence)
-                st.metric(f"Historical {confidence}% VaR", f"${var_hist:,.2f}")
-                st.caption("Historical VaR is the loss at a given confidence level based on historical MTM distribution.")
-                st.plotly_chart(px.histogram(filtered_df, x="MTM", nbins=30, title="MTM Distribution"), use_container_width=True)
+                with st.expander("📊 Exposure by Commodity"):
+                    exposure_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        fig_bar = px.bar(exposure_df, x='Commodity', y='MTM', color='Commodity')
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                    with col2:
+                        fig_pie = px.pie(exposure_df, names='Commodity', values='MTM')
+                        st.plotly_chart(fig_pie, use_container_width=True)
 
-            with st.expander("🧪 Scenario Testing"):
-                scenario_pct = st.number_input("Enter Shock % on Market Price", value=-5.0, format="%.2f")
-                shocked_df = filtered_df.copy()
-                shocked_df['Shocked MTM'] = ((shocked_df['Market Price'] * (1 + scenario_pct / 100)) - shocked_df['Book Price']) * shocked_df['Quantity']
-                mtm_diff = shocked_df['Shocked MTM'].sum() - shocked_df['MTM'].sum()
-                st.metric("Shocked MTM", f"${shocked_df['Shocked MTM'].sum():,.2f}", delta=f"${mtm_diff:,.2f}")
-                st.plotly_chart(px.histogram(shocked_df, x="Shocked MTM", nbins=30, title="Shocked MTM Distribution"), use_container_width=True)
+                with st.expander("🔢 Historical VaR (Quantile-Based)"):
+                    confidence = st.slider("Confidence Level (%)", 90, 99, 95)
+                    var_hist = np.percentile(filtered_df['MTM'].dropna(), 100 - confidence)
+                    st.metric(f"Historical {confidence}% VaR", f"${var_hist:,.2f}")
+                    st.caption("Historical VaR is the loss at a given confidence level based on historical MTM distribution.")
+                    st.plotly_chart(px.histogram(filtered_df, x="MTM", nbins=30, title="MTM Distribution"), use_container_width=True)
 
-            with st.expander("💥 Stress Testing"):
-                st.write("Apply custom shocks to assess extreme outcomes")
-                shocks = st.multiselect("Select Stress Scenarios", ['+10%', '+20%', '-10%', '-20%'])
-                for shock in shocks:
-                    pct = float(shock.replace('%', ''))
-                    stress_df = filtered_df.copy()
-                    stress_df['Stress MTM'] = ((stress_df['Market Price'] * (1 + pct / 100)) - stress_df['Book Price']) * stress_df['Quantity']
-                    st.metric(f"Stress MTM ({shock})", f"${stress_df['Stress MTM'].sum():,.2f}")
+                with st.expander("🧪 Scenario Testing"):
+                    scenario_pct = st.number_input("Enter Shock % on Market Price", value=-5.0, format="%.2f")
+                    shocked_df = filtered_df.copy()
+                    shocked_df['Shocked MTM'] = ((shocked_df['Market Price'] * (1 + scenario_pct / 100)) - shocked_df['Book Price']) * shocked_df['Quantity']
+                    mtm_diff = shocked_df['Shocked MTM'].sum() - shocked_df['MTM'].sum()
+                    st.metric("Shocked MTM", f"${shocked_df['Shocked MTM'].sum():,.2f}", delta=f"${mtm_diff:,.2f}")
+                    st.plotly_chart(px.histogram(shocked_df, x="Shocked MTM", nbins=30, title="Shocked MTM Distribution"), use_container_width=True)
 
-            with st.expander("📅 Trade Performance by Date"):
-                if 'Trade Date' in filtered_df.columns:
-                    df_perf = filtered_df.copy()
-                    df_perf['Trade Date'] = pd.to_datetime(df_perf['Trade Date'])
-                    daily_perf = df_perf.groupby('Trade Date').agg({"MTM": "sum", "Realized PnL": "sum"}).reset_index()
-                    fig = px.line(daily_perf, x="Trade Date", y=["MTM", "Realized PnL"], title="Daily MTM and Realized PnL")
-                    st.plotly_chart(fig, use_container_width=True)
+                with st.expander("💥 Stress Testing"):
+                    st.write("Apply custom shocks to assess extreme outcomes")
+                    shocks = st.multiselect("Select Stress Scenarios", ['+10%', '+20%', '-10%', '-20%'])
+                    for shock in shocks:
+                        pct = float(shock.replace('%', ''))
+                        stress_df = filtered_df.copy()
+                        stress_df['Stress MTM'] = ((stress_df['Market Price'] * (1 + pct / 100)) - stress_df['Book Price']) * stress_df['Quantity']
+                        st.metric(f"Stress MTM ({shock})", f"${stress_df['Stress MTM'].sum():,.2f}")
 
-            st.markdown("---")
-            st.header("🔍 Advanced Risk Analytics")
+                with st.expander("📅 Trade Performance by Date"):
+                    if 'Trade Date' in filtered_df.columns:
+                        df_perf = filtered_df.copy()
+                        df_perf['Trade Date'] = pd.to_datetime(df_perf['Trade Date'])
+                        daily_perf = df_perf.groupby('Trade Date').agg({"MTM": "sum", "Realized PnL": "sum"}).reset_index()
+                        fig = px.line(daily_perf, x="Trade Date", y=["MTM", "Realized PnL"], title="Daily MTM and Realized PnL")
+                        st.plotly_chart(fig, use_container_width=True)
 
-            with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
-                confidence = st.slider("Confidence Level", 90, 99, 95, key="adv_var")
-                if 'MTM' in filtered_df.columns:
-                    var = np.percentile(filtered_df['MTM'].dropna(), 100 - confidence)
-                    st.metric("Portfolio VaR", f"${var:,.2f}")
+            with col_risk:
+                st.header("🔍 Advanced Risk Analytics")
+                with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
+                    confidence = st.slider("Confidence Level", 90, 99, 95, key="adv_var")
+                    if 'MTM' in filtered_df.columns:
+                        var = np.percentile(filtered_df['MTM'].dropna(), 100 - confidence)
+                        st.metric("Portfolio VaR", f"${var:,.2f}")
 
-            with st.expander("🎲 Monte Carlo Simulation"):
-                sims = st.number_input("Simulations", 100, 5000, 1000)
-                days = st.number_input("Days", 1, 30, 10)
-                vol = np.std(filtered_df['MTM'].dropna())
-                simulated = np.random.normal(filtered_df['MTM'].mean(), vol, size=(sims, days))
-                portfolio_returns = simulated.sum(axis=1)
-                st.plotly_chart(px.histogram(portfolio_returns, nbins=50, title="Simulated Portfolio PnL"), use_container_width=True)
+                with st.expander("🎲 Monte Carlo Simulation"):
+                    sims = st.number_input("Simulations", 100, 5000, 1000)
+                    days = st.number_input("Days", 1, 30, 10)
+                    vol = np.std(filtered_df['MTM'].dropna())
+                    simulated = np.random.normal(filtered_df['MTM'].mean(), vol, size=(sims, days))
+                    portfolio_returns = simulated.sum(axis=1)
+                    st.plotly_chart(px.histogram(portfolio_returns, nbins=50, title="Simulated Portfolio PnL"), use_container_width=True)
 
-            with st.expander("📉 Rolling Volatility"):
-                window = st.slider("Rolling Window", 3, 30, 5)
-                if 'MTM' in filtered_df.columns:
-                    filtered_df['Vol'] = filtered_df['MTM'].rolling(window).std()
-                    st.line_chart(filtered_df['Vol'])
+                with st.expander("📉 Rolling Volatility"):
+                    window = st.slider("Rolling Window", 3, 30, 5)
+                    if 'MTM' in filtered_df.columns:
+                        filtered_df['Vol'] = filtered_df['MTM'].rolling(window).std()
+                        st.line_chart(filtered_df['Vol'])
 
         except Exception as e:
             st.error(f"Error processing file: {e}")
