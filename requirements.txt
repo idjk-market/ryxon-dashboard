@@ -5,3 +5,4 @@ plotly
 scipy
 streamlit-aggrid
 streamlit-option-menu
+openpyxl
