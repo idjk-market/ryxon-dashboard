@@ -6,4 +6,4 @@ scipy
 streamlit-aggrid
 streamlit-option-menu
 openpyxl
-enable_enterprise_modules=True
+
