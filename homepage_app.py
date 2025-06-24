@@ -62,39 +62,18 @@ def main():
     trades = load_trade_data()
     st.title("Trade Dashboard")
 
-    with st.container():
-        with st.expander("🔍 Filters", expanded=True):
-            col1, col2, col3 = st.columns(3)
-
-            with col1:
-                instrument_filter = st.selectbox(
-                    "Instrument",
-                    ["All"] + sorted(trades['instrument'].unique().tolist()),
-                    key="instrument_filter"
-                )
-
-            with col2:
-                commodity_filter = st.selectbox(
-                    "Commodity", 
-                    ["All"] + sorted(trades['instrument'].unique().tolist()),
-                    key="commodity_filter"
-                )
-
-            with col3:
-                date_filter = st.selectbox(
-                    "Trade Date",
-                    ["All"] + sorted(trades['trade_date'].unique().tolist()),
-                    key="date_filter"
-                )
-
+    # Display Trade Table with dynamic filters directly
+    st.subheader("Filtered Trades with Dynamic Filters")
     filtered_trades = trades.copy()
-    if instrument_filter != "All":
-        filtered_trades = filtered_trades[filtered_trades['instrument'] == instrument_filter]
-    if commodity_filter != "All":
-        filtered_trades = filtered_trades[filtered_trades['instrument'] == commodity_filter]
-    if date_filter != "All":
-        filtered_trades = filtered_trades[filtered_trades['trade_date'] == date_filter]
 
+    selected_cols = ['instrument', 'type', 'direction', 'trade_date']
+    for col in selected_cols:
+        unique_vals = ['All'] + sorted(trades[col].unique().tolist())
+        selected_val = st.selectbox(f"Filter by {col.capitalize()}", unique_vals, key=col)
+        if selected_val != "All":
+            filtered_trades = filtered_trades[filtered_trades[col] == selected_val]
+
+    # Display metrics based on filtered data
     metrics = calculate_metrics(filtered_trades)
 
     st.subheader("Performance Metrics")
