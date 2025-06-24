@@ -47,40 +47,23 @@ else:
         df = pd.read_excel(uploaded_file)
 
         # ---- FILTERED TRADE DATA TABLE ----
-        st.markdown("### 📋 Filtered Trade Data")
-
-        # Add column filtering dynamically
-        filter_columns = df.columns.tolist()
-        filter_values = {}
-        with st.expander("🔍 Apply Filters to Trade Data"):
-            for col in filter_columns:
-                if df[col].dtype == 'object' or df[col].dtype.name == 'category':
-                    options = ['All'] + sorted(df[col].dropna().unique().tolist())
-                    selected = st.selectbox(f"{col}", options, key=col)
-                    if selected != 'All':
-                        filter_values[col] = selected
-
-        # Apply filters
-        filtered_df = df.copy()
-        for col, val in filter_values.items():
-            filtered_df = filtered_df[filtered_df[col] == val]
-
-        st.dataframe(filtered_df, use_container_width=True)
+        st.markdown("### 📋 Trade Data")
+        st.dataframe(df, use_container_width=True)
 
         # ---- CALCULATE METRICS ----
-        filtered_df['MTM'] = filtered_df.get('MTM', 0)
-        filtered_df['Realized PnL'] = filtered_df.get('Realized PnL', 0)
-        filtered_df['Unrealized PnL'] = filtered_df.get('Unrealized PnL', 0)
+        df['MTM'] = df.get('MTM', 0)
+        df['Realized PnL'] = df.get('Realized PnL', 0)
+        df['Unrealized PnL'] = df.get('Unrealized PnL', 0)
 
-        mtm_total = filtered_df['MTM'].sum()
-        realized_pnl = filtered_df['Realized PnL'].sum()
-        unrealized_pnl = filtered_df['Unrealized PnL'].sum()
+        mtm_total = df['MTM'].sum()
+        realized_pnl = df['Realized PnL'].sum()
+        unrealized_pnl = df['Unrealized PnL'].sum()
 
         try:
-            returns = filtered_df['MTM'].pct_change().dropna()
+            returns = df['MTM'].pct_change().dropna()
             avg_return = returns.mean()
             volatility = returns.std()
-            var_95 = np.percentile(filtered_df['MTM'].dropna(), 5)
+            var_95 = np.percentile(df['MTM'].dropna(), 5)
         except:
             avg_return = 0
             volatility = 0
@@ -94,19 +77,28 @@ else:
             col4.metric("Unrealized PnL", f"${unrealized_pnl:,.2f}")
             st.caption(f"Avg Daily Return: {avg_return:.4f} | Avg Volatility: {volatility:.4f}")
 
-        # ---- ADVANCED SECTION ----
-        with st.expander("🧠 Advanced Risk Analytics", expanded=False):
-            with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
-                st.write("Coming soon...")
-            with st.expander("🧪 Monte Carlo Simulation"):
-                st.write("Coming soon...")
-            with st.expander("📉 Rolling Volatility"):
-                st.line_chart(filtered_df['MTM'])
-            with st.expander("🚨 Stress Testing"):
-                st.write("Coming soon...")
-            with st.expander("📊 Scenario Analysis"):
-                st.write("Coming soon...")
-            with st.expander("📉 Historical VaR"):
-                st.write("Coming soon...")
+        # ---- ADVANCED RISK ANALYTICS ----
+        st.markdown("### 🧠 Advanced Risk Analytics")
+        with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
+            st.write("Coming soon...")
+        with st.expander("🧪 Monte Carlo Simulation"):
+            st.write("Coming soon...")
+        with st.expander("📉 Rolling Volatility"):
+            st.line_chart(df['MTM'])
+        with st.expander("🚨 Stress Testing"):
+            st.write("Coming soon...")
+        with st.expander("📊 Scenario Analysis"):
+            st.write("Coming soon...")
+        with st.expander("📉 Historical VaR"):
+            st.write("Coming soon...")
+
+        # ---- REPORTING ----
+        st.markdown("### 📑 Generate Risk Reports")
+        reporting_url = "https://ryxon-dashboard-idjk-market.streamlit.app/reporting_app"
+        st.markdown(f"""
+        <a href="{reporting_url}" target="_blank">
+            <button style='padding:10px 18px; background:#4B0082; color:white; border:none; border-radius:6px; font-weight:600;'>📄 Go to Reporting Module</button>
+        </a>
+        """, unsafe_allow_html=True)
     else:
         st.warning("Please upload a valid Excel trade file to proceed.")
