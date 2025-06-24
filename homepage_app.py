@@ -145,9 +145,34 @@ else:
                 st.caption("Historical VaR is the loss at a given confidence level based on historical MTM distribution.")
                 st.plotly_chart(px.histogram(filtered_df, x="MTM", nbins=30, title="MTM Distribution"), use_container_width=True)
 
+            with st.expander("🧪 Scenario Testing"):
+                scenario_pct = st.number_input("Enter Shock % on Market Price", value=-5.0, format="%.2f")
+                shocked_df = filtered_df.copy()
+                shocked_df['Shocked MTM'] = ((shocked_df['Market Price'] * (1 + scenario_pct / 100)) - shocked_df['Book Price']) * shocked_df['Quantity']
+                mtm_diff = shocked_df['Shocked MTM'].sum() - shocked_df['MTM'].sum()
+                st.metric("Shocked MTM", f"${shocked_df['Shocked MTM'].sum():,.2f}", delta=f"${mtm_diff:,.2f}")
+                st.plotly_chart(px.histogram(shocked_df, x="Shocked MTM", nbins=30, title="Shocked MTM Distribution"), use_container_width=True)
+
+            with st.expander("💥 Stress Testing"):
+                st.write("Apply custom shocks to assess extreme outcomes")
+                shocks = st.multiselect("Select Stress Scenarios", ['+10%', '+20%', '-10%', '-20%'])
+                for shock in shocks:
+                    pct = float(shock.replace('%', ''))
+                    stress_df = filtered_df.copy()
+                    stress_df['Stress MTM'] = ((stress_df['Market Price'] * (1 + pct / 100)) - stress_df['Book Price']) * stress_df['Quantity']
+                    st.metric(f"Stress MTM ({shock})", f"${stress_df['Stress MTM'].sum():,.2f}")
+
+            with st.expander("📅 Trade Performance by Date"):
+                if 'Trade Date' in filtered_df.columns:
+                    df_perf = filtered_df.copy()
+                    df_perf['Trade Date'] = pd.to_datetime(df_perf['Trade Date'])
+                    daily_perf = df_perf.groupby('Trade Date').agg({"MTM": "sum", "Realized PnL": "sum"}).reset_index()
+                    fig = px.line(daily_perf, x="Trade Date", y=["MTM", "Realized PnL"], title="Daily MTM and Realized PnL")
+                    st.plotly_chart(fig, use_container_width=True)
+
         except Exception as e:
             st.error(f"Error processing file: {e}")
 
-    if st.button("← Back to Home"):
+    if st.button("\u2190 Back to Home"):
         st.session_state.show_dashboard = False
         st.rerun()
