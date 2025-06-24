@@ -40,23 +40,31 @@ def main():
                     # Calculate MTM
                     df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
 
-                    # Display top metrics
+                    # Display metrics
                     col1, col2, col3 = st.columns(3)
                     col1.metric("Total Trades", len(df))
                     col2.metric("Total MTM", f"${df['MTM'].sum():,.2f}")
                     col3.metric("Unique Instruments", df['Instrument Type'].nunique())
 
-                    # AgGrid with filterable columns
-                    st.subheader("Trade Data (Interactive Grid with Filters)")
+                    # AgGrid configuration with proper column filters
+                    st.subheader("Trade Data (Interactive Grid with Dropdown Filters)")
 
                     gb = GridOptionsBuilder.from_dataframe(df)
+
+                    # Default column behavior
                     gb.configure_default_column(
                         filter=True,
                         sortable=True,
                         resizable=True,
                         floatingFilter=True
                     )
-                    gb.configure_grid_options(domLayout='normal')
+
+                    # Explicit dropdown filters for key columns
+                    gb.configure_column("Commodity", filter="agSetColumnFilter")
+                    gb.configure_column("Instrument Type", filter="agSetColumnFilter")
+                    gb.configure_column("Trade Action", filter="agSetColumnFilter")
+                    gb.configure_column("Quantity", filter="agNumberColumnFilter")
+
                     gridOptions = gb.build()
 
                     AgGrid(
