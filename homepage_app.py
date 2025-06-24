@@ -4,6 +4,7 @@ import numpy as np
 import plotly.express as px
 from io import BytesIO
 from PIL import Image
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
 
 # ---- PAGE CONFIG ----
 st.set_page_config(
@@ -25,15 +26,12 @@ if 'show_dashboard' not in st.session_state:
     st.session_state.show_dashboard = False
 
 if not st.session_state.show_dashboard:
-    # Landing page content
     st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
-    
-    # Working launch button
+
     if st.button("🚀 Launch Dashboard", type="primary", use_container_width=True):
         st.session_state.show_dashboard = True
         st.rerun()
-    
-    # ---- FEATURE HIGHLIGHTS ----
+
     st.markdown("## 🔍 Features You'll Love")
     st.markdown("""
     <ul style="font-size: 1.1rem; line-height: 1.6;">
@@ -46,7 +44,6 @@ if not st.session_state.show_dashboard:
     </ul>
     """, unsafe_allow_html=True)
 
-    # ---- PRODUCT COVERAGE ----
     st.markdown("## 🏦 Asset Class Coverage")
     cols = st.columns(4)
     products = [
@@ -65,7 +62,6 @@ if not st.session_state.show_dashboard:
             </div>
             """, unsafe_allow_html=True)
 
-    # ---- FOOTER ----
     st.markdown("""
     <div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
         🚀 Built with ❤️ by Ryxon Technologies – Market Risk Intelligence
@@ -73,67 +69,47 @@ if not st.session_state.show_dashboard:
     """, unsafe_allow_html=True)
 
 else:
-    # ---- DASHBOARD CONTENT ----
     st.title("📊 Ryxon Risk Dashboard")
-    
-    # File uploader
     uploaded_file = st.file_uploader("Upload your trade file (CSV or Excel)", type=["csv", "xlsx"])
-    
+
     if uploaded_file:
-        # Process file
         if uploaded_file.name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
-        
-        # Basic calculations
+
         df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
-        
-        # Display metrics
+
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Trades", len(df))
         col2.metric("Total MTM", f"${df['MTM'].sum():,.2f}")
         col3.metric("Unique Instruments", df['Instrument Type'].nunique())
-        
-        # Show data with filters
+
         st.subheader("Trade Data")
-        st.dataframe(df)
-        
-        # ===========================================
-        # EXPOSURE BY COMMODITY SECTION (NEW)
-        # ===========================================
+        gb = GridOptionsBuilder.from_dataframe(df)
+        gb.configure_grid_options(suppressMenu=False)
+        gb.configure_default_column(filter=True, sortable=True, resizable=True, floatingFilter=True)
+        for col in ["Commodity", "Instrument Type", "Trade Action"]:
+            gb.configure_column(col, filter="agSetColumnFilter", floatingFilter=True)
+        gb.configure_column("Quantity", filter="agNumberColumnFilter", floatingFilter=True)
+        gb.configure_column("MTM", filter="agNumberColumnFilter", floatingFilter=True)
+        gridOptions = gb.build()
+
+        AgGrid(df, gridOptions=gridOptions, update_mode=GridUpdateMode.NO_UPDATE,
+               allow_unsafe_jscode=True, enable_enterprise_modules=True,
+               fit_columns_on_grid_load=True, use_container_width=True, height=500)
+
         st.subheader("Exposure by Commodity")
-        
-        # Calculate exposure
         exposure_df = df.groupby('Commodity')['MTM'].sum().reset_index()
-        
-        # Create two columns for charts
         col1, col2 = st.columns(2)
-        
         with col1:
-            # Bar chart of exposure by commodity
-            st.write("**Net Exposure**")
-            fig_bar = px.bar(
-                exposure_df,
-                x='Commodity',
-                y='MTM',
-                color='Commodity',
-                title="MTM Exposure by Commodity"
-            )
+            fig_bar = px.bar(exposure_df, x='Commodity', y='MTM', color='Commodity',
+                            title="MTM Exposure by Commodity")
             st.plotly_chart(fig_bar, use_container_width=True)
-        
         with col2:
-            # Pie chart of exposure distribution
-            st.write("**Exposure Distribution**")
-            fig_pie = px.pie(
-                exposure_df,
-                names='Commodity',
-                values='MTM',
-                title="Percentage of Total Exposure"
-            )
+            fig_pie = px.pie(exposure_df, names='Commodity', values='MTM',
+                            title="Percentage of Total Exposure")
             st.plotly_chart(fig_pie, use_container_width=True)
-        
-        # Additional exposure metrics
         st.write("**Detailed Exposure Metrics**")
         exposure_metrics = exposure_df.copy()
         exposure_metrics['% of Total'] = (exposure_metrics['MTM'] / exposure_metrics['MTM'].abs().sum()) * 100
@@ -144,8 +120,38 @@ else:
             }),
             use_container_width=True
         )
-        
-        # Add back button
+
+        with st.expander("📈 MTM Summary", expanded=False):
+            st.write("**Total MTM:**", round(df['MTM'].sum(), 2))
+            st.write("**Average MTM:**", round(df['MTM'].mean(), 2))
+            st.write("**Top MTM Trades:**")
+            st.dataframe(df.nlargest(5, 'MTM')[['Trade ID', 'Commodity', 'MTM']])
+
+        with st.expander("💰 Realized & Unrealized PnL", expanded=False):
+            if 'Realized PnL' in df.columns and 'Unrealized PnL' in df.columns:
+                st.write("**Total Realized PnL:**", round(df['Realized PnL'].sum(), 2))
+                st.write("**Total Unrealized PnL:**", round(df['Unrealized PnL'].sum(), 2))
+                st.bar_chart(df[['Realized PnL', 'Unrealized PnL']])
+            else:
+                st.warning("Columns 'Realized PnL' and 'Unrealized PnL' not found in uploaded data.")
+
+        with st.expander("📉 Value at Risk (VaR)", expanded=False):
+            def calculate_var(dataframe, confidence_level=0.95):
+                pnl_series = dataframe['MTM']
+                if len(pnl_series) > 1:
+                    return -np.percentile(pnl_series.dropna(), (1 - confidence_level) * 100)
+                return 0
+            var_95 = calculate_var(df, 0.95)
+            var_99 = calculate_var(df, 0.99)
+            st.metric("VaR (95%)", f"${var_95:,.2f}")
+            st.metric("VaR (99%)", f"${var_99:,.2f}")
+            st.line_chart(df['MTM'])
+
+        with st.expander("📊 Historical VaR", expanded=False):
+            hist_var = df['MTM'].quantile([0.01, 0.05, 0.10])
+            st.write(hist_var.to_frame("Historical VaR Levels"))
+            st.area_chart(df['MTM'])
+
         if st.button("← Back to Home"):
             st.session_state.show_dashboard = False
             st.rerun()
