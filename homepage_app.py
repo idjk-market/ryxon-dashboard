@@ -39,30 +39,13 @@ if not st.session_state.show_dashboard:
         <li>📊 <strong>Real-time MTM & PnL Tracking</strong> – Upload trades and instantly view live MTM values</li>
         <li>🛡️ <strong>Value at Risk (VaR)</strong> – Parametric & Historical VaR with confidence control</li>
         <li>📈 <strong>Scenario Testing</strong> – Stress-test positions for custom shocks</li>
-        <li>📉 <strong>Unrealized vs Realized PnL</strong> – Clearly broken down with hedge grouping</li>
+        <li>📉 <strong>Unrealized vs Realized PnL</strong> – Automatically derived from trade status</li>
+        <li>📐 <strong>Sharpe & Sortino Ratio</strong> – Risk-adjusted return analytics</li>
         <li>🧠 <strong>Dynamic Filtering</strong> – Commodity, Instrument, Strategy – Fully interactive</li>
         <li>📊 <strong>Exposure Analysis</strong> – Visualize by commodity/instrument</li>
         <li>📄 <strong>Performance Over Time</strong> – Daily MTM & PnL tracking</li>
     </ul>
     """, unsafe_allow_html=True)
-
-    # ---- PRODUCT COVERAGE ----
-    st.markdown("## 🏦 Asset Class Coverage")
-    cols = st.columns(4)
-    products = [
-        ("Equity", "📈", "Stocks, ETFs, and equity derivatives"),
-        ("Commodities", "⛏️", "Energy, metals, and agricultural products"),
-        ("Cryptos", "🔗", "Spot and derivatives across major cryptocurrencies"),
-        ("Bonds & Forex", "💱", "Fixed income and currency products")
-    ]
-    for i, (name, icon, desc) in enumerate(products):
-        with cols[i]:
-            st.markdown(f"""
-            <div style="background: white; border-radius: 0.5rem; padding: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.05); height: 100%;">
-                <h4 style="color: #4B0082;">{icon} {name}</h4>
-                <p>{desc}</p>
-            </div>
-            """, unsafe_allow_html=True)
 
     st.markdown("""
     <div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
@@ -77,22 +60,25 @@ else:
 
     if uploaded_file:
         try:
-            # Read file
             if uploaded_file.name.endswith('.csv'):
                 df = pd.read_csv(uploaded_file)
             else:
                 df = pd.read_excel(uploaded_file)
 
             required_cols = ['Market Price', 'Book Price', 'Quantity']
-            if not all(col in df.columns for col in required_cols):
-                st.error("Missing required columns: Market Price, Book Price, Quantity")
-                st.stop()
+            for col in required_cols:
+                if col not in df.columns:
+                    st.error(f"Missing required column: {col}")
+                    st.stop()
 
             df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
 
-            for col in ['Realized PnL', 'Unrealized PnL', 'Daily Return', 'Rolling Volatility', 'VaR']:
-                if col not in df.columns:
-                    df[col] = np.nan
+            df['Trade Status'] = df.get('Trade Status', 'Open')
+
+            df['Realized PnL'] = df.apply(lambda x: x['MTM'] if x['Trade Status'] == 'Closed' else 0, axis=1)
+            df['Unrealized PnL'] = df.apply(lambda x: x['MTM'] if x['Trade Status'] == 'Open' else 0, axis=1)
+            df['Daily Return'] = df.get('Daily Return', df['MTM'].pct_change().fillna(0))
+            df['Rolling Volatility'] = df['Daily Return'].rolling(window=5).std().fillna(0)
 
             st.subheader("🔍 Filters")
             f1, f2, f3, f4 = st.columns(4)
@@ -121,10 +107,18 @@ else:
             with st.expander("📈 MTM, PnL, VaR Analysis", expanded=True):
                 col1, col2, col3, col4 = st.columns(4)
                 col1.metric("Mark-to-Market", f"${filtered_df['MTM'].sum():,.2f}")
-                col2.metric("1-Day VaR", f"${filtered_df['VaR'].max():,.2f}")
+                param_var = np.percentile(filtered_df['MTM'].dropna(), 5)
+                col2.metric("Parametric VaR (95%)", f"${param_var:,.2f}")
                 col3.metric("Realized PnL", f"${filtered_df['Realized PnL'].sum():,.2f}")
                 col4.metric("Unrealized PnL", f"${filtered_df['Unrealized PnL'].sum():,.2f}")
                 st.caption(f"Avg Daily Return: {filtered_df['Daily Return'].mean():.4f} | Avg Volatility: {filtered_df['Rolling Volatility'].mean():.4f}")
+
+                # Sharpe and Sortino
+                rf_rate = 0.01 / 252
+                sharpe_ratio = (filtered_df['Daily Return'].mean() - rf_rate) / (filtered_df['Daily Return'].std() + 1e-9)
+                downside_std = filtered_df['Daily Return'][filtered_df['Daily Return'] < 0].std()
+                sortino_ratio = (filtered_df['Daily Return'].mean() - rf_rate) / (downside_std + 1e-9)
+                st.caption(f"Sharpe Ratio: {sharpe_ratio:.2f} | Sortino Ratio: {sortino_ratio:.2f}")
 
             with st.expander("📊 Exposure by Commodity"):
                 exposure_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
