@@ -88,12 +88,18 @@ else:
             st.caption(f"Avg Daily Return: {avg_return:.4f} | Avg Volatility: {volatility:.4f}")
 
         # ---- ADVANCED SECTION ----
-        with st.expander("🧠 Advanced Risk Analytics"):
+        with st.expander("🧠 Advanced Risk Analytics", expanded=False):
             with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
                 st.write("Coming soon...")
             with st.expander("🧪 Monte Carlo Simulation"):
                 st.write("Coming soon...")
             with st.expander("📉 Rolling Volatility"):
                 st.line_chart(filtered_df['MTM'])
+            with st.expander("🚨 Stress Testing"):
+                st.write("Coming soon...")
+            with st.expander("📊 Scenario Analysis"):
+                st.write("Coming soon...")
+            with st.expander("📉 Historical VaR"):
+                st.write("Coming soon...")
     else:
         st.warning("Please upload a valid Excel trade file to proceed.")
