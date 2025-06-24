@@ -1,128 +1,141 @@
+# homepage.py
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
-from io import BytesIO
-from PIL import Image
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode
+from datetime import datetime
 
-# ---- PAGE CONFIG ----
-st.set_page_config(
-    page_title="Ryxon Dashboard",
-    page_icon="📊",
-    layout="wide"
-)
+# Sample trade data
+def load_trade_data():
+    return pd.DataFrame([
+        {
+            'id': 'Tr012',
+            'instrument': 'Gold',
+            'type': 'Future',
+            'direction': 'Buy',
+            'price': 84.45,
+            'quantity': 70.81,
+            'trade_date': '12/01/2025',
+            'mtm': 1145.76,
+            'realized_pnl': 0,
+            'unrealized_pnl': -1145.76,
+            'daily_return': 5.0075503356,
+            'rolling_volatility': 2.4624088284,
+            'var': 5342.16807
+        },
+        {
+            'id': 'Tr013',
+            'instrument': 'Silver',
+            'type': 'Future',
+            'direction': 'Sell',
+            'price': 22.30,
+            'quantity': 150.25,
+            'trade_date': '01/01/2025',
+            'mtm': 875.42,
+            'realized_pnl': 125.50,
+            'unrealized_pnl': -320.18,
+            'daily_return': 3.2055503356,
+            'rolling_volatility': 1.8624088284,
+            'var': 4215.45821
+        }
+    ])
 
-# ---- HEADER SECTION ----
-st.markdown("""
-    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
-        <img src="https://raw.githubusercontent.com/idjk-market/ryxon-dashboard/main/ryxon_logo.png" width="80">
-        <h1 style="color: #4B0082; font-weight: 900;">Ready to Take Control of Risk?</h1>
-    </div>
-""", unsafe_allow_html=True)
-
-# ---- MAIN APP SELECTION ----
-if 'show_dashboard' not in st.session_state:
-    st.session_state.show_dashboard = False
-
-if not st.session_state.show_dashboard:
-    # Landing page content
-    st.success("Try Ryxon Dashboard Now – Upload your trade file and see risk insights in seconds!")
+def calculate_metrics(filtered_trades):
+    if filtered_trades.empty:
+        return {
+            'total_mtm': 0,
+            'total_realized_pnl': 0,
+            'total_unrealized_pnl': 0,
+            'max_var': 0,
+            'avg_daily_return': 0,
+            'avg_volatility': 0
+        }
     
-    if st.button("🚀 Launch Dashboard", type="primary", use_container_width=True):
-        st.session_state.show_dashboard = True
-        st.rerun()
-    
-    # ... [Rest of your homepage content remains the same] ...
+    return {
+        'total_mtm': filtered_trades['mtm'].sum(),
+        'total_realized_pnl': filtered_trades['realized_pnl'].sum(),
+        'total_unrealized_pnl': filtered_trades['unrealized_pnl'].sum(),
+        'max_var': filtered_trades['var'].max(),
+        'avg_daily_return': filtered_trades['daily_return'].mean(),
+        'avg_volatility': filtered_trades['rolling_volatility'].mean()
+    }
 
-else:
-    # ---- DASHBOARD CONTENT ----
-    st.title("📊 Ryxon Risk Dashboard")
+def main():
+    st.set_page_config(layout="wide")
     
-    uploaded_file = st.file_uploader("Upload your trade file (CSV or Excel)", type=["csv", "xlsx"])
+    # Load data
+    trades = load_trade_data()
     
-    if uploaded_file:
-        # Process file
-        if uploaded_file.name.endswith('.csv'):
-            df = pd.read_csv(uploaded_file)
-        else:
-            df = pd.read_excel(uploaded_file)
-        
-        # Calculate MTM
-        df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
-        
-        # Display metrics
-        col1, col2, col3 = st.columns(3)
-        col1.metric("Total Trades", len(df))
-        col2.metric("Total MTM", f"${df['MTM'].sum():,.2f}")
-        col3.metric("Unique Instruments", df['Instrument Type'].nunique())
-
-        # ===========================================
-        # INTERACTIVE FILTERABLE TRADE TABLE (NEW)
-        # ===========================================
-        st.subheader("Trade Data (Filter any column)")
-        
-        # Configure AgGrid for advanced filtering
-        gb = GridOptionsBuilder.from_dataframe(df)
-        gb.configure_default_column(
-            filterable=True,
-            sortable=True,
-            resizable=True,
-            floatingFilter=True
+    # Title
+    st.title("Trade Dashboard")
+    
+    # Create columns for filters
+    col1, col2, col3 = st.columns(3)
+    
+    # Instrument filter
+    with col1:
+        instrument_filter = st.selectbox(
+            "Instrument",
+            ["All"] + sorted(trades['instrument'].unique().tolist()),
+            key="instrument_filter"
         )
-        
-        # Special configuration for key columns
-        for col in ["Commodity", "Instrument Type", "Trade Action"]:
-            gb.configure_column(col, 
-                              filter="agSetColumnFilter",
-                              floatingFilter=True)
-        
-        for col in ["Quantity", "Book Price", "Market Price", "MTM"]:
-            gb.configure_column(col, 
-                              filter="agNumberColumnFilter",
-                              floatingFilter=True)
-        
-        gridOptions = gb.build()
-        
-        # Display the interactive table
-        AgGrid(
-            df,
-            gridOptions=gridOptions,
-            update_mode=GridUpdateMode.FILTERING_CHANGED,
-            height=400,
-            width='100%',
-            theme='streamlit',
-            allow_unsafe_jscode=True
+    
+    # Commodity filter
+    with col2:
+        commodity_filter = st.selectbox(
+            "Commodity", 
+            ["All"] + sorted(trades['instrument'].unique().tolist()),
+            key="commodity_filter"
         )
+    
+    # Date filter
+    with col3:
+        date_filter = st.selectbox(
+            "Trade Date",
+            ["All"] + sorted(trades['trade_date'].unique().tolist()),
+            key="date_filter"
+        )
+    
+    # Apply filters
+    filtered_trades = trades.copy()
+    if instrument_filter != "All":
+        filtered_trades = filtered_trades[filtered_trades['instrument'] == instrument_filter]
+    if commodity_filter != "All":
+        filtered_trades = filtered_trades[filtered_trades['instrument'] == commodity_filter]
+    if date_filter != "All":
+        filtered_trades = filtered_trades[filtered_trades['trade_date'] == date_filter]
+    
+    # Calculate metrics
+    metrics = calculate_metrics(filtered_trades)
+    
+    # Display metrics
+    st.subheader("Performance Metrics")
+    metric_cols = st.columns(4)
+    with metric_cols[0]:
+        st.metric("Mark-to-Market", f"${metrics['total_mtm']:,.2f}")
+    with metric_cols[1]:
+        st.metric("1-Day VaR", f"${metrics['max_var']:,.2f}")
+    with metric_cols[2]:
+        st.metric("Realized PnL", f"${metrics['total_realized_pnl']:,.2f}")
+    with metric_cols[3]:
+        st.metric("Unrealized PnL", f"${metrics['total_unrealized_pnl']:,.2f}")
+    
+    # Additional metrics
+    st.caption(f"Avg Daily Return: {metrics['avg_daily_return']:.4f} | Avg Volatility: {metrics['avg_volatility']:.4f}")
+    
+    # Display filtered trades
+    st.subheader(f"Filtered Trades ({len(filtered_trades)})")
+    st.dataframe(
+        filtered_trades[[
+            'id', 'instrument', 'type', 'direction', 
+            'price', 'quantity', 'trade_date', 'mtm'
+        ]],
+        column_config={
+            "price": st.column_config.NumberColumn(format="$%.2f"),
+            "mtm": st.column_config.NumberColumn(format="$%.2f"),
+            "quantity": st.column_config.NumberColumn(format="%.2f")
+        },
+        use_container_width=True,
+        hide_index=True
+    )
 
-        # ===========================================
-        # EXPOSURE BY COMMODITY SECTION
-        # ===========================================
-        st.subheader("Exposure by Commodity")
-        
-        # Calculate exposure (will respect table filters)
-        filtered_df = df  # AgGrid filters are applied automatically
-        exposure_df = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            fig_bar = px.bar(exposure_df, x='Commodity', y='MTM', 
-                            title="MTM Exposure by Commodity")
-            st.plotly_chart(fig_bar, use_container_width=True)
-        
-        with col2:
-            fig_pie = px.pie(exposure_df, names='Commodity', values='MTM',
-                            title="Exposure Distribution")
-            st.plotly_chart(fig_pie, use_container_width=True)
-
-        # Add back button
-        if st.button("← Back to Home"):
-            st.session_state.show_dashboard = False
-            st.rerun()
-
-# ---- FOOTER ----
-st.markdown("""
-<div style="text-align:center; color: gray; font-size: 0.9rem; margin-top: 40px;">
-    🚀 Built with ❤️ by Ryxon Technologies
-</div>
-""", unsafe_allow_html=True)
+if __name__ == "__main__":
+    main()
