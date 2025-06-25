@@ -120,12 +120,13 @@ elif st.session_state.dashboard_mode == "manual":
     with st.form("horizontal_trade_form"):
         instrument = st.selectbox("Instrument Type", ["Futures", "Options", "Forwards", "Swaps"])
 
-        row1 = st.columns(5)
+        row1 = st.columns(6)
         trade_date = row1[0].date_input("Trade Date", value=datetime.today())
         commodity = row1[1].text_input("Commodity")
         instrument_no = row1[2].text_input("Instrument No.")
         exchange = row1[3].text_input("Exchange")
         index = row1[4].text_input("Index")
+        position = row1[5].selectbox("Position", ["Long", "Short"])
 
         row2 = st.columns(4)
         lot_type = row2[0].selectbox("Lot Type", ["Standard", "Mini"])
@@ -158,6 +159,7 @@ elif st.session_state.dashboard_mode == "manual":
                 "Instrument No.": instrument_no,
                 "Exchange": exchange,
                 "Index": index,
+                "Position": position,
                 "Lot Type": lot_type,
                 "Lot Size": lot_size,
                 "Lots": lots,
@@ -178,6 +180,7 @@ elif st.session_state.dashboard_mode == "manual":
                 "Instrument No.": instrument_no,
                 "Exchange": exchange,
                 "Index": index,
+                "Position": position,
                 "Lot Type": lot_type,
                 "Lot Size": lot_size,
                 "Lots": lots,
