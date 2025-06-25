@@ -70,6 +70,8 @@ header, .block-container {
 # ---- STATE ----
 if 'show_dashboard' not in st.session_state:
     st.session_state.show_dashboard = False
+if 'dashboard_mode' not in st.session_state:
+    st.session_state.dashboard_mode = None
 
 # ---- NAVIGATION HEADER ----
 st.markdown("""
@@ -92,10 +94,27 @@ if not st.session_state.show_dashboard:
     if st.button("🚀 Launch Dashboard"):
         st.session_state.show_dashboard = True
         st.rerun()
-else:
-    st.markdown("<div class='big-title'>📈 Ryxon Risk Dashboard</div>", unsafe_allow_html=True)
 
-    # ---- MANUAL TRADE ENTRY ----
+elif st.session_state.dashboard_mode is None:
+    st.subheader("Choose Your Mode")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📂 Upload Trade File"):
+            st.session_state.dashboard_mode = "upload"
+            st.rerun()
+    with col2:
+        if st.button("📝 Create Manual Trade"):
+            st.session_state.dashboard_mode = "manual"
+            st.rerun()
+
+# ---- GO BACK BUTTON ----
+if st.session_state.dashboard_mode in ["upload", "manual"]:
+    if st.button("🔙 Go Back"):
+        st.session_state.dashboard_mode = None
+        st.rerun()
+
+# ---- MANUAL TRADE ENTRY ----
+elif st.session_state.dashboard_mode == "manual":
     st.subheader("📝 Manual Trade Entry")
     st.markdown("Enter trade details below. This is useful for paper trading or strategy simulation.")
 
@@ -126,6 +145,9 @@ else:
 
         st.dataframe(new_trade, use_container_width=True)
 
+# ---- FILE UPLOAD DASHBOARD ----
+elif st.session_state.dashboard_mode == "upload":
+    st.subheader("📁 Upload Trade File")
     uploaded_file = st.file_uploader("Upload your trade data (Excel)", type=["xlsx"])
 
     if uploaded_file is not None:
@@ -176,13 +198,13 @@ else:
 
         st.markdown("### 📑 Risk Reporting")
         with st.expander("📝 Risk Summary Report"):
-            st.write("""
+            st.write(f"""
             This report provides a snapshot of portfolio risk:
-            - Total MTM: ${:,.2f}
-            - Total Realized PnL: ${:,.2f}
-            - Total Unrealized PnL: ${:,.2f}
-            - 1-Day Historical VaR (95%): ${:,.2f}
-            """.format(mtm_total, realized_pnl, unrealized_pnl, var_95))
+            - Total MTM: ${mtm_total:,.2f}
+            - Total Realized PnL: ${realized_pnl:,.2f}
+            - Total Unrealized PnL: ${unrealized_pnl:,.2f}
+            - 1-Day Historical VaR (95%): ${var_95:,.2f}
+            """)
 
         with st.expander("📊 Exposure Breakdown Report"):
             if 'Commodity' in df.columns:
