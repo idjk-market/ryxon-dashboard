@@ -67,13 +67,13 @@ header, .block-container {
 </style>
 """, unsafe_allow_html=True)
 
-# ---- STATE ----
+# ---- SESSION STATE ----
 if 'show_dashboard' not in st.session_state:
     st.session_state.show_dashboard = False
 if 'dashboard_mode' not in st.session_state:
     st.session_state.dashboard_mode = None
 
-# ---- NAVIGATION HEADER ----
+# ---- NAVBAR ----
 st.markdown("""
 <div class="navbar">
     <div class="big-title">Ryxon Technologies</div>
@@ -90,24 +90,25 @@ st.markdown("""
 # ---- LANDING PAGE ----
 if not st.session_state.show_dashboard:
     st.markdown("<div class='big-title'>📊 Welcome to Ryxon – The Edge of Trading Risk Intelligence</div>", unsafe_allow_html=True)
-    st.markdown("<div class='subtitle'>Upload your trade file and instantly gain insight into your trading risks with MTM, VaR, and more.</div>", unsafe_allow_html=True)
+    st.markdown("<div class='subtitle'>Upload your trade file or create a trade manually to analyze risk metrics.</div>", unsafe_allow_html=True)
     if st.button("🚀 Launch Dashboard"):
         st.session_state.show_dashboard = True
         st.rerun()
 
+# ---- MODE SELECTION ----
 elif st.session_state.dashboard_mode is None:
-    st.subheader("Choose Your Mode")
+    st.subheader("Choose Action")
     col1, col2 = st.columns(2)
     with col1:
         if st.button("📂 Upload Trade File"):
             st.session_state.dashboard_mode = "upload"
             st.rerun()
     with col2:
-        if st.button("📝 Create Manual Trade"):
+        if st.button("📝 Create Trade Manually"):
             st.session_state.dashboard_mode = "manual"
             st.rerun()
 
-# ---- GO BACK BUTTON ----
+# ---- BACK BUTTON ----
 if st.session_state.dashboard_mode in ["upload", "manual"]:
     if st.button("🔙 Go Back"):
         st.session_state.dashboard_mode = None
@@ -116,8 +117,6 @@ if st.session_state.dashboard_mode in ["upload", "manual"]:
 # ---- MANUAL TRADE ENTRY ----
 elif st.session_state.dashboard_mode == "manual":
     st.subheader("📝 Manual Trade Entry")
-    st.markdown("Enter trade details below. This is useful for paper trading or strategy simulation.")
-
     with st.form("trade_form"):
         trade_date = st.date_input("Trade Date")
         commodity = st.selectbox("Commodity", ["Gold", "Silver", "Crude", "Copper"])
@@ -131,7 +130,6 @@ elif st.session_state.dashboard_mode == "manual":
     if submitted:
         mtm = (market_price - book_price) * quantity if direction == "Buy" else (book_price - market_price) * quantity
         st.success(f"Trade submitted successfully! MTM = ${mtm:,.2f}")
-
         new_trade = pd.DataFrame([{
             "Trade Date": trade_date,
             "Commodity": commodity,
@@ -142,20 +140,18 @@ elif st.session_state.dashboard_mode == "manual":
             "Market Price": market_price,
             "MTM": mtm
         }])
-
         st.dataframe(new_trade, use_container_width=True)
 
-# ---- FILE UPLOAD DASHBOARD ----
+# ---- UPLOAD TRADE FILE ----
 elif st.session_state.dashboard_mode == "upload":
     st.subheader("📁 Upload Trade File")
-    uploaded_file = st.file_uploader("Upload your trade data (Excel)", type=["xlsx"])
-
-    if uploaded_file is not None:
+    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
+    if uploaded_file:
         df = pd.read_excel(uploaded_file)
-
         st.markdown("### 📋 Trade Data")
         st.dataframe(df, use_container_width=True)
 
+        # ---- CALCULATIONS ----
         df['MTM'] = df.get('MTM', 0)
         df['Realized PnL'] = df.get('Realized PnL', 0)
         df['Unrealized PnL'] = df.get('Unrealized PnL', 0)
@@ -174,6 +170,7 @@ elif st.session_state.dashboard_mode == "upload":
             volatility = 0
             var_95 = 0
 
+        # ---- RISK METRICS ----
         with st.expander("📊 Core Risk Metrics", expanded=True):
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Mark-to-Market", f"${mtm_total:,.2f}")
@@ -182,45 +179,42 @@ elif st.session_state.dashboard_mode == "upload":
             col4.metric("Unrealized PnL", f"${unrealized_pnl:,.2f}")
             st.caption(f"Avg Daily Return: {avg_return:.4f} | Avg Volatility: {volatility:.4f}")
 
+        # ---- ADVANCED RISK ----
         st.markdown("### 🧠 Advanced Risk Analytics")
         with st.expander("📦 Portfolio VaR (Variance-Covariance)"):
-            st.write("Coming soon...")
+            st.info("Coming soon...")
         with st.expander("🧪 Monte Carlo Simulation"):
-            st.write("Coming soon...")
+            st.info("Coming soon...")
         with st.expander("📉 Rolling Volatility"):
             st.line_chart(df['MTM'])
         with st.expander("🚨 Stress Testing"):
-            st.write("Coming soon...")
+            st.info("Coming soon...")
         with st.expander("📊 Scenario Analysis"):
-            st.write("Coming soon...")
+            st.info("Coming soon...")
         with st.expander("📉 Historical VaR"):
-            st.write("Coming soon...")
+            st.info("Coming soon...")
 
-        st.markdown("### 📑 Risk Reporting")
-        with st.expander("📝 Risk Summary Report"):
+        # ---- REPORTING ----
+        st.markdown("### 📑 Risk Reports")
+        with st.expander("📝 Summary"):
             st.write(f"""
-            This report provides a snapshot of portfolio risk:
-            - Total MTM: ${mtm_total:,.2f}
-            - Total Realized PnL: ${realized_pnl:,.2f}
-            - Total Unrealized PnL: ${unrealized_pnl:,.2f}
-            - 1-Day Historical VaR (95%): ${var_95:,.2f}
+            - Total MTM: ${mtm_total:,.2f}  
+            - Realized PnL: ${realized_pnl:,.2f}  
+            - Unrealized PnL: ${unrealized_pnl:,.2f}  
+            - VaR (95%): ${var_95:,.2f}  
             """)
 
-        with st.expander("📊 Exposure Breakdown Report"):
+        with st.expander("📊 Exposure Breakdown"):
             if 'Commodity' in df.columns:
                 exposure_df = df.groupby('Commodity')['MTM'].sum().reset_index()
                 fig = px.bar(exposure_df, x='Commodity', y='MTM', title='Exposure by Commodity')
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No 'Commodity' column found for exposure analysis.")
 
-        with st.expander("📅 Daily Performance Report"):
+        with st.expander("📅 Daily MTM/PnL"):
             if 'Trade Date' in df.columns:
                 df['Trade Date'] = pd.to_datetime(df['Trade Date'])
                 perf_df = df.groupby('Trade Date').agg({'MTM': 'sum', 'Realized PnL': 'sum'}).reset_index()
-                fig = px.line(perf_df, x='Trade Date', y=['MTM', 'Realized PnL'], title="Daily MTM and PnL")
+                fig = px.line(perf_df, x='Trade Date', y=['MTM', 'Realized PnL'], title="Daily MTM and Realized PnL")
                 st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("No 'Trade Date' column found for daily performance chart.")
     else:
-        st.warning("Please upload a valid Excel trade file to proceed.")
+        st.warning("Please upload a valid Excel file to continue.")
