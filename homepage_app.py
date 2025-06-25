@@ -119,30 +119,72 @@ elif st.session_state.dashboard_mode == "manual":
 
     with st.form("trade_form"):
         trade_date = st.date_input("Trade Date")
-        commodity = st.selectbox("Commodity", ["Gold", "Silver", "Crude", "Copper"])
-        instrument = st.selectbox("Instrument Type", ["Future", "Option", "Swap"])
-        direction = st.selectbox("Trade Direction", ["Buy", "Sell"])
-        quantity = st.number_input("Quantity", min_value=0.0)
-        book_price = st.number_input("Book Price", min_value=0.0)
-        market_price = st.number_input("Market Price", min_value=0.0)
+        instrument = st.selectbox("Instrument Type", ["Futures", "Options", "Forwards", "Swaps"])
+        commodity = st.text_input("Commodity")
+        instrument_no = st.text_input("Instrument No.")
+        exchange = st.text_input("Exchange")
+        index = st.text_input("Index")
+        lot_type = st.selectbox("Lot Type", ["Standard", "Mini"])
+        lot_size = st.number_input("Lot Size", min_value=0.0)
+        lots = st.number_input("Lots", min_value=0.0)
+
+        total_qty = lot_size * lots
+
+        if instrument == "Options":
+            option_type = st.selectbox("Option Type", ["Call", "Put"])
+            option_action = st.selectbox("Option Action", ["Buy", "Sell"])
+            strike_price = st.number_input("Strike Price", min_value=0.0)
+            premium = st.number_input("Premium", min_value=0.0)
+            total_amount = total_qty * premium
+        else:
+            book_price = st.number_input("Book Price", min_value=0.0)
+            market_price = st.number_input("Market Price", min_value=0.0)
+            total_amount = total_qty * book_price
+
         submitted = st.form_submit_button("Submit Trade")
 
     if submitted:
-        mtm = (market_price - book_price) * quantity if direction == "Buy" else (book_price - market_price) * quantity
+        if instrument == "Options":
+            mtm = total_qty * premium if option_action == "Sell" else -total_qty * premium
+            trade_details = {
+                "Trade Date": trade_date,
+                "Instrument Type": instrument,
+                "Commodity": commodity,
+                "Instrument No.": instrument_no,
+                "Exchange": exchange,
+                "Index": index,
+                "Lot Type": lot_type,
+                "Lot Size": lot_size,
+                "Lots": lots,
+                "Total Qty": total_qty,
+                "Option Type": option_type,
+                "Option Action": option_action,
+                "Strike Price": strike_price,
+                "Premium": premium,
+                "Total Amount": total_amount,
+                "MTM": mtm
+            }
+        else:
+            mtm = (market_price - book_price) * total_qty
+            trade_details = {
+                "Trade Date": trade_date,
+                "Instrument Type": instrument,
+                "Commodity": commodity,
+                "Instrument No.": instrument_no,
+                "Exchange": exchange,
+                "Index": index,
+                "Lot Type": lot_type,
+                "Lot Size": lot_size,
+                "Lots": lots,
+                "Total Qty": total_qty,
+                "Book Price": book_price,
+                "Market Price": market_price,
+                "Total Amount": total_amount,
+                "MTM": mtm
+            }
+
         st.success(f"Trade submitted successfully! MTM = ${mtm:,.2f}")
-
-        new_trade = pd.DataFrame([{
-            "Trade Date": trade_date,
-            "Commodity": commodity,
-            "Instrument Type": instrument,
-            "Trade Action": direction,
-            "Quantity": quantity,
-            "Book Price": book_price,
-            "Market Price": market_price,
-            "MTM": mtm
-        }])
-
-        st.dataframe(new_trade, use_container_width=True)
+        st.dataframe(pd.DataFrame([trade_details]), use_container_width=True)
 
 # ---- FILE UPLOAD DASHBOARD ----
 elif st.session_state.dashboard_mode == "upload":
