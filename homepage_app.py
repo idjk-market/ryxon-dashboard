@@ -118,34 +118,47 @@ elif st.session_state.dashboard_mode == "manual":
     st.markdown("Fill the trade form based on selected instrument.")
 
     with st.form("horizontal_trade_form"):
-        instrument = st.selectbox("Instrument Type", ["Futures", "Options", "Forwards", "Swaps"])
+        # First row - Basic trade info
+        row1 = st.columns(4)
+        instrument = row1[0].selectbox("Instrument Type", ["Futures", "Options", "Forwards", "Swaps"])
+        trade_date = row1[1].date_input("Trade Date", value=datetime.today())
+        position = row1[2].selectbox("Position", ["Long", "Short"])
+        commodity = row1[3].text_input("Commodity")
 
-        row1 = st.columns(6)
-        trade_date = row1[0].date_input("Trade Date", value=datetime.today())
-        commodity = row1[1].text_input("Commodity")
-        instrument_no = row1[2].text_input("Instrument No.")
-        exchange = row1[3].text_input("Exchange")
-        index = row1[4].text_input("Index")
-        position = row1[5].selectbox("Position", ["Long", "Short"])
-
+        # Second row - Instrument details
         row2 = st.columns(4)
-        lot_type = row2[0].selectbox("Lot Type", ["Standard", "Mini"])
-        lot_size = row2[1].number_input("Lot Size", min_value=0.0)
-        lots = row2[2].number_input("Lots", min_value=0.0)
-        total_qty = lot_size * lots
+        instrument_no = row2[0].text_input("Instrument No.")
+        exchange = row2[1].text_input("Exchange")
+        index = row2[2].text_input("Index")
+        lot_type = row2[3].selectbox("Lot Type", ["Standard", "Mini"])
 
+        # Third row - Quantity details
+        row3 = st.columns(3)
+        lot_size = row3[0].number_input("Lot Size", min_value=0.0, value=1.0)
+        lots = row3[1].number_input("Lots", min_value=0.0, value=1.0)
+        total_qty = row3[2].number_input("Total Qty", value=lot_size * lots, disabled=True)
+
+        # Dynamic fields based on instrument type
         if instrument == "Options":
-            row3 = st.columns(4)
-            option_type = row3[0].selectbox("Option Type", ["Call", "Put"])
-            option_action = row3[1].selectbox("Action", ["Buy", "Sell"])
-            strike_price = row3[2].number_input("Strike Price", min_value=0.0)
-            premium = row3[3].number_input("Premium", min_value=0.0)
+            row4 = st.columns(4)
+            option_type = row4[0].selectbox("Option Type", ["Call", "Put"])
+            option_action = row4[1].selectbox("Action", ["Buy", "Sell"])
+            strike_price = row4[2].number_input("Strike Price", min_value=0.0, value=0.0)
+            premium = row4[3].number_input("Premium", min_value=0.0, value=0.0)
+            
+            # Calculate and display total amount
             total_amount = total_qty * premium
+            row5 = st.columns(2)
+            row5[0].number_input("Total Amount", value=total_amount, disabled=True)
         else:
             row4 = st.columns(2)
-            book_price = row4[0].number_input("Book Price", min_value=0.0)
-            market_price = row4[1].number_input("Market Price", min_value=0.0)
+            book_price = row4[0].number_input("Book Price", min_value=0.0, value=0.0)
+            market_price = row4[1].number_input("Market Price", min_value=0.0, value=0.0)
+            
+            # Calculate and display total amount
             total_amount = total_qty * book_price
+            row5 = st.columns(2)
+            row5[0].number_input("Total Amount", value=total_amount, disabled=True)
 
         submitted = st.form_submit_button("✅ Submit Trade")
 
