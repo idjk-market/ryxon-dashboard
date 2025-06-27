@@ -35,11 +35,15 @@ col1, col2 = st.columns(2)
 
 with col1:
     if st.button("📂 Upload Trade File", use_container_width=True):
-        st.switch_page("trade_register.py")
+        st.session_state.show_dashboard = True
+        st.session_state.dashboard_mode = "upload"
+        st.rerun()
 
 with col2:
     if st.button("📝 Create Manual Trade", use_container_width=True):
-        st.switch_page("trade_entry.py")
+        st.session_state.show_dashboard = True
+        st.session_state.dashboard_mode = "manual"
+        st.rerun()
 
 st.markdown("""
     <ul style='line-height: 1.8; font-size: 1.05rem;'>
@@ -53,3 +57,9 @@ st.markdown("""
 </div>
 <p style='font-size: 0.9rem; color: #555;'>Use the sidebar to navigate through the modules anytime.</p>
 """, unsafe_allow_html=True)
+
+# Add a back button in case user navigated here by mistake
+if st.button("🔙 Back to Homepage"):
+    st.session_state.show_dashboard = False
+    st.session_state.dashboard_mode = None
+    st.rerun()
