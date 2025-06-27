@@ -2,71 +2,78 @@ import streamlit as st
 import pandas as pd
 from streamlit_option_menu import option_menu
 
-# Page configuration
+# Configure page
 st.set_page_config(
     page_title="Trading Dashboard",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for modern styling
+# Custom CSS with professional color scheme
 st.markdown("""
 <style>
     :root {
-        --primary: #3a7bd5;
-        --primary-light: #5a9df5;
-        --secondary: #00d2ff;
-        --success: #00C853;
-        --text: #2c3e50;
-        --light-bg: #f8f9fa;
+        --sidebar-bg: #1a2e4a;  /* Deep navy blue */
+        --sidebar-hover: #2a3e5a;
+        --sidebar-active: #3a4e6a;
+        --primary-text: #ffffff;
+        --secondary-text: #a8c0e0;
         --card-bg: #ffffff;
+        --metric-value: #2c3e50;
+        --positive: #4CAF50;
+        --neutral: #FFC107;
         --border: #e0e0e0;
-    }
-    
-    /* Main container */
-    .main {
-        background-color: #f5f7fa;
     }
     
     /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, var(--primary), var(--secondary)) !important;
-        padding: 1.5rem 1rem !important;
+        background-color: var(--sidebar-bg) !important;
+        padding: 2rem 1rem !important;
+        border-right: 1px solid var(--border) !important;
     }
     
     .sidebar-title {
-        color: white !important;
+        color: var(--primary-text) !important;
         font-size: 1.5rem !important;
         margin-bottom: 2rem !important;
-        font-weight: 700 !important;
+        font-weight: 600 !important;
         padding: 0 0.5rem;
     }
     
-    /* Modern menu items */
-    .menu-item {
-        padding: 0.75rem 1rem !important;
+    /* Menu items */
+    .st-ae {
+        background-color: transparent !important;
+    }
+    
+    [data-testid="stSidebarNavLink"] {
+        color: var(--secondary-text) !important;
         margin: 0.5rem 0 !important;
         border-radius: 8px !important;
         transition: all 0.3s ease !important;
-        color: white !important;
     }
     
-    .menu-item:hover {
-        background: rgba(255,255,255,0.15) !important;
+    [data-testid="stSidebarNavLink"]:hover {
+        background-color: var(--sidebar-hover) !important;
+        color: var(--primary-text) !important;
     }
     
-    .menu-item.active {
-        background: white !important;
-        color: var(--primary) !important;
+    [data-testid="stSidebarNavLink"].active {
+        background-color: var(--sidebar-active) !important;
+        color: var(--primary-text) !important;
         font-weight: 600 !important;
     }
     
-    /* Card styling */
+    /* Main content */
+    .main .block-container {
+        background-color: #f5f7fa;
+    }
+    
+    /* Cards */
     .metric-card {
         background: var(--card-bg);
-        border-radius: 12px;
+        border-radius: 10px;
         padding: 1.5rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         border: 1px solid var(--border);
         height: 100%;
     }
@@ -79,6 +86,7 @@ st.markdown("""
     }
     
     .metric-value {
+        color: var(--metric-value);
         font-size: 1.8rem;
         font-weight: 700;
         margin-bottom: 0.25rem;
@@ -91,22 +99,25 @@ st.markdown("""
     }
     
     .positive {
-        color: var(--success);
+        color: var(--positive);
     }
     
-    /* Table card */
+    .neutral {
+        color: var(--neutral);
+    }
+    
+    /* Table */
     .table-card {
         background: var(--card-bg);
-        border-radius: 12px;
+        border-radius: 10px;
         padding: 1.5rem;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         margin-top: 1.5rem;
         border: 1px solid var(--border);
     }
     
-    /* Status indicators */
     .status-active {
-        color: var(--success);
+        color: var(--positive);
         font-weight: 500;
     }
     
@@ -116,17 +127,10 @@ st.markdown("""
     
     /* Footer */
     .footer {
-        color: white;
+        color: var(--secondary-text);
         font-size: 0.8rem;
         margin-top: 2rem;
         padding: 0 0.5rem;
-    }
-    
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-        .metric-value {
-            font-size: 1.5rem;
-        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -135,7 +139,7 @@ st.markdown("""
 with st.sidebar:
     st.markdown('<div class="sidebar-title">Trading Dashboard</div>', unsafe_allow_html=True)
     
-    # Modern navigation menu with icons
+    # Navigation menu
     selected = option_menu(
         menu_title=None,
         options=["Dashboard", "Upload Trades", "Manual Entry", "Analytics", "Settings"],
@@ -147,7 +151,7 @@ with st.sidebar:
                 "background-color": "transparent",
             },
             "icon": {
-                "color": "white",
+                "color": "var(--secondary-text)",
                 "font-size": "1rem",
             },
             "nav-link": {
@@ -156,37 +160,30 @@ with st.sidebar:
                 "margin": "0.25rem 0",
                 "padding": "0.75rem 1rem",
                 "border-radius": "8px",
-                "color": "white",
+                "color": "var(--secondary-text)",
                 "transition": "all 0.3s ease",
             },
             "nav-link-selected": {
-                "background-color": "white",
-                "color": "var(--primary)",
+                "background-color": "var(--sidebar-active)",
+                "color": "var(--primary-text)",
                 "font-weight": "600",
             },
             "nav-link:hover": {
-                "background-color": "rgba(255,255,255,0.15)",
+                "background-color": "var(--sidebar-hover)",
+                "color": "var(--primary-text)",
             },
         }
     )
     
-    # Footer with last updated
+    # Footer
     st.markdown("""
     <div class="footer">
         <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
-                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 8V12L15 15" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="var(--secondary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M12 8V12L15 15" stroke="var(--secondary-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
             Last updated: Just now
-        </div>
-        <div style="display: flex; align-items: center;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-right: 8px;">
-                <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 16V12" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M12 8H12.01" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            v2.1.0
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -194,7 +191,7 @@ with st.sidebar:
 # ===== MAIN CONTENT =====
 st.title("Dashboard")
 
-# Top Metrics Row
+# Top Metrics
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -202,7 +199,7 @@ with col1:
     <div class="metric-card">
         <div class="metric-title">Open Positions</div>
         <div class="metric-value">142</div>
-        <div class="metric-change positive">↑ +12% from last week</div>
+        <div class="metric-change positive">↑ +1.2% from last week</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -211,7 +208,7 @@ with col2:
     <div class="metric-card">
         <div class="metric-title">Risk Exposure</div>
         <div class="metric-value">$4.2M</div>
-        <div class="metric-change positive">↑ Within limits</div>
+        <div class="metric-change neutral">• Within limits</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -224,7 +221,7 @@ with col3:
     </div>
     """, unsafe_allow_html=True)
 
-# Recent Trades Table
+# Recent Trades
 st.markdown('<div class="table-card">', unsafe_allow_html=True)
 st.subheader("Recent Trades")
 
@@ -238,10 +235,10 @@ trades_data = {
 }
 trades_df = pd.DataFrame(trades_data)
 
-# Display styled dataframe
+# Display dataframe with styled status
 st.dataframe(
     trades_df.style.applymap(
-        lambda x: "color: #00C853" if x == "Active" else "color: #6c757d",
+        lambda x: "color: #4CAF50" if x == "Active" else "color: #6c757d",
         subset=["Status"]
     ),
     use_container_width=True,
@@ -252,24 +249,3 @@ st.dataframe(
     }
 )
 st.markdown('</div>', unsafe_allow_html=True)
-
-# Bottom Metrics Row
-col4, col5 = st.columns(2)
-
-with col4:
-    st.markdown("""
-    <div class="metric-card">
-        <div class="metric-title">Risk Exposure</div>
-        <div class="metric-value">$4.2M</div>
-        <div class="metric-change positive">↑ Within limits</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with col5:
-    st.markdown("""
-    <div class="metric-card">
-        <div class="metric-title">Today's P&L</div>
-        <div class="metric-value">$124K</div>
-        <div class="metric-change positive">↑ +2.4% MTD</div>
-    </div>
-    """, unsafe_allow_html=True)
