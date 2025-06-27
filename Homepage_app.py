@@ -1,314 +1,249 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-from datetime import datetime
-import time
-
-# Initialize all session state variables
-if 'auth' not in st.session_state:
-    st.session_state.auth = False
-if 'current_page' not in st.session_state:
-    st.session_state.current_page = "login"
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = False
-if 'sidebar_state' not in st.session_state:
-    st.session_state.sidebar_state = "expanded"
-if 'uploaded_data' not in st.session_state:
-    st.session_state.uploaded_data = None
-
-# ---- STYLING ----
-def set_app_style():
-    bg_color = "#0E1117" if st.session_state.dark_mode else "#FFFFFF"
-    text_color = "#FFFFFF" if st.session_state.dark_mode else "#000000"
-    
-    st.markdown(f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Dashboard</title>
     <style>
-    .stApp {{
-        background-color: {bg_color};
-        color: {text_color};
-        transition: all 0.3s ease;
-    }}
-    .sidebar .sidebar-content {{
-        transition: margin 0.3s ease;
-    }}
-    .sidebar-collapsed {{
-        margin-left: -300px;
-    }}
-    .file-uploader {{
-        border: 2px dashed #6a1b9a;
-        border-radius: 10px;
-        padding: 2rem;
-        text-align: center;
-    }}
-    </style>
-    """, unsafe_allow_html=True)
-
-# ---- SIDEBAR COMPONENT ----
-def show_sidebar():
-    with st.sidebar:
-        # Sidebar toggle button
-        if st.button("◄" if st.session_state.sidebar_state == "expanded" else "►", 
-                    key="sidebar_toggle"):
-            st.session_state.sidebar_state = "collapsed" if st.session_state.sidebar_state == "expanded" else "expanded"
-            st.rerun()
+        :root {
+            --primary-color: #2962FF;
+            --success-color: #00C853;
+            --warning-color: #FFAB00;
+            --danger-color: #D50000;
+            --bg-color: #121212;
+            --card-color: #1E1E1E;
+            --text-color: #E0E0E0;
+            --border-color: #333333;
+        }
         
-        if st.session_state.sidebar_state == "expanded":
-            st.image("https://via.placeholder.com/150x50?text=Ryxon", width=150)
-            st.markdown("## Navigation")
-            
-            nav_pages = {
-                "📊 Dashboard": "dashboard",
-                "📂 Upload Trades": "upload",
-                "✍️ Manual Entry": "manual",
-                "📈 Analytics": "analytics",
-                "⚙️ Settings": "settings"
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            gap: 20px;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            background-color: var(--card-color);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+        }
+        
+        .metrics-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+        
+        .card {
+            background-color: var(--card-color);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            color: #9E9E9E;
+        }
+        
+        .card .value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        
+        .card .change {
+            display: flex;
+            align-items: center;
+            font-size: 1rem;
+            color: var(--success-color);
+        }
+        
+        .card .change.danger {
+            color: var(--danger-color);
+        }
+        
+        .card .change.warning {
+            color: var(--warning-color);
+        }
+        
+        .table-container {
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        th {
+            background-color: var(--card-color);
+            color: #9E9E9E;
+            font-weight: 600;
+        }
+        
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .status-active {
+            color: var(--success-color);
+        }
+        
+        .status-expired {
+            color: #9E9E9E;
+        }
+        
+        .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .nav-item:last-child {
+            border-bottom: none;
+        }
+        
+        .nav-item.active {
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+        
+        .theme-switch {
+            display: flex;
+            align-items: center;
+            margin-top: 30px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: rgba(41, 98, 255, 0.1);
+            cursor: pointer;
+        }
+        
+        @media (max-width: 1200px) {
+            .metrics-container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                grid-template-columns: 1fr;
             }
             
-            for label, page in nav_pages.items():
-                if st.button(label, use_container_width=True, key=f"nav_{page}"):
-                    st.session_state.current_page = page
-                    st.rerun()
-            
-            st.markdown("---")
-            if st.button("🔒 Logout", use_container_width=True, key="logout_btn"):
-                st.session_state.auth = False
-                st.session_state.current_page = "login"
-                st.rerun()
-            
-            # Dark mode toggle
-            st.markdown("---")
-            dark_mode = st.toggle("Dark Mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
-            if dark_mode != st.session_state.dark_mode:
-                st.session_state.dark_mode = dark_mode
-                set_app_style()
-                st.rerun()
-
-# ---- PAGES ----
-def login_page():
-    with st.container():
-        st.title("🔒 Ryxon Authentication")
+            .metrics-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>Trading Dashboard</h1>
         
-        with st.form("login_form"):
-            username = st.text_input("Username")
-            password = st.text_input("Password", type="password")
-            
-            if st.form_submit_button("Login"):
-                if username == "admin" and password == "ryxon123":
-                    st.session_state.auth = True
-                    st.session_state.current_page = "dashboard"
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials")
-
-def dashboard_page():
-    set_app_style()
-    show_sidebar()
+        <div class="nav-item active">Dashboard</div>
+        <div class="nav-item">Upload Trades</div>
+        <div class="nav-item">Manual Entry</div>
+        <div class="nav-item">Analytics</div>
+        <div class="nav-item">Settings</div>
+        <div class="nav-item">Logout</div>
+        
+        <div class="theme-switch">
+            <span>Dark Mode</span>
+        </div>
+    </div>
     
-    with st.container():
-        st.title("📊 Trading Dashboard")
-        
-        # Stats cards
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Open Positions", "142", "+12% from last week")
-        with col2:
-            st.metric("Risk Exposure", "$4.2M", "Within limits")
-        with col3:
-            st.metric("Today's P&L", "$124K", "+2.4% MTD")
-        
-        # Recent trades table
-        st.markdown("### Recent Trades")
-        trades = pd.DataFrame({
-            'Trade ID': ['FX-2023-0456', 'IRS-2023-0789', 'OPT-2023-0321'],
-            'Instrument': ['EUR/USD', '10Y IRS', 'SPX Call'],
-            'Notional': ['$5,000,000', '$10,000,000', '$2,500,000'],
-            'Price': [1.0856, 2.34, 35.50],
-            'Date': ['2023-05-15', '2023-05-14', '2023-05-13'],
-            'Status': ['Active', 'Active', 'Expired']
-        })
-        st.dataframe(trades, use_container_width=True)
-
-def upload_page():
-    set_app_style()
-    show_sidebar()
-    
-    with st.container():
-        if st.button("← Back to Dashboard"):
-            st.session_state.current_page = "dashboard"
-            st.rerun()
-        
-        st.title("📂 Trade File Upload")
-        
-        # File uploader with browse option
-        with st.container():
-            st.markdown('<div class="file-uploader">', unsafe_allow_html=True)
+    <div class="main-content">
+        <div class="metrics-container">
+            <div class="card">
+                <h2>Open Positions</h2>
+                <div class="value">142</div>
+                <div class="change">
+                    ↑ +12% from last week
+                </div>
+            </div>
             
-            uploaded_file = st.file_uploader(
-                "Drag and drop or click to browse files",
-                type=["csv", "xlsx", "xls"],
-                accept_multiple_files=False,
-                key="file_uploader",
-                help="Supported formats: CSV, Excel (XLSX/XLS)"
-            )
+            <div class="card">
+                <h2>Risk Exposure</h2>
+                <div class="value">$4.2M</div>
+                <div class="change">
+                    ↑ Within limits
+                </div>
+            </div>
             
-            if uploaded_file:
-                try:
-                    if uploaded_file.name.endswith('.csv'):
-                        df = pd.read_csv(uploaded_file)
-                    else:
-                        df = pd.read_excel(uploaded_file)
-                    
-                    st.session_state.uploaded_data = df
-                    st.success(f"Successfully loaded {len(df)} trades")
-                    
-                    with st.expander("Preview data"):
-                        st.dataframe(df.head())
-                    
-                    if st.button("Process Trades", type="primary"):
-                        st.session_state.current_page = "processing"
-                        st.rerun()
-                
-                except Exception as e:
-                    st.error(f"Error processing file: {str(e)}")
-            
-            st.markdown('</div>', unsafe_allow_html=True)
-
-def manual_page():
-    set_app_style()
-    show_sidebar()
-    
-    with st.container():
-        if st.button("← Back to Dashboard"):
-            st.session_state.current_page = "dashboard"
-            st.rerun()
+            <div class="card">
+                <h2>Today's P&L</h2>
+                <div class="value">$124K</div>
+                <div class="change">
+                    ↑ +2.4% MTD
+                </div>
+            </div>
+        </div>
         
-        st.title("✍️ Manual Trade Entry")
-        
-        with st.form("trade_form"):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                trade_id = st.text_input("Trade ID", value=f"TRD-{datetime.now().strftime('%Y%m%d')}-")
-                instrument = st.selectbox("Instrument", ["FX Forward", "Interest Rate Swap", "Option", "Future"])
-                notional = st.number_input("Notional Amount", min_value=0.0, value=1000000.0)
-            
-            with col2:
-                trade_date = st.date_input("Trade Date", value=datetime.now())
-                direction = st.radio("Direction", ["Buy", "Sell"])
-                price = st.number_input("Price/Rate", min_value=0.0, value=1.0, step=0.0001)
-            
-            counterparty = st.text_input("Counterparty")
-            comments = st.text_area("Comments")
-            
-            if st.form_submit_button("Submit Trade"):
-                if not trade_id or not counterparty:
-                    st.error("Please fill all required fields")
-                else:
-                    new_trade = {
-                        'TradeID': trade_id,
-                        'Instrument': instrument,
-                        'Notional': notional,
-                        'Direction': direction,
-                        'Price': price,
-                        'TradeDate': trade_date,
-                        'Counterparty': counterparty,
-                        'Comments': comments,
-                        'Timestamp': datetime.now()
-                    }
-                    
-                    if 'trades' not in st.session_state:
-                        st.session_state.trades = []
-                    
-                    st.session_state.trades.append(new_trade)
-                    st.success("Trade submitted successfully!")
-                    time.sleep(1)
-                    st.session_state.current_page = "dashboard"
-                    st.rerun()
-
-def analytics_page():
-    set_app_style()
-    show_sidebar()
-    
-    with st.container():
-        if st.button("← Back to Dashboard"):
-            st.session_state.current_page = "dashboard"
-            st.rerun()
-        
-        st.title("📈 Risk Analytics")
-        
-        if st.session_state.uploaded_data is not None:
-            df = st.session_state.uploaded_data
-            
-            # VaR Calculation
-            st.subheader("Value at Risk")
-            confidence = st.slider("Confidence Level", 90, 99, 95)
-            var = df['Price'].quantile(1 - confidence/100)
-            st.metric(f"{confidence}% VaR", f"${var:,.2f}")
-            
-            # Visualization
-            fig = px.histogram(df, x="Price", nbins=30, title="Price Distribution")
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.warning("Please upload trade data first")
-
-def settings_page():
-    set_app_style()
-    show_sidebar()
-    
-    with st.container():
-        if st.button("← Back to Dashboard"):
-            st.session_state.current_page = "dashboard"
-            st.rerun()
-        
-        st.title("⚙️ Settings")
-        
-        with st.form("settings_form"):
-            currency = st.selectbox("Default Currency", ["USD", "EUR", "GBP", "JPY"])
-            risk_limit = st.number_input("Risk Limit ($)", min_value=0, value=10000000)
-            smtp_server = st.text_input("SMTP Server", value="smtp.ryxon.com")
-            
-            if st.form_submit_button("Save Settings"):
-                st.success("Settings saved successfully")
-
-def processing_page():
-    set_app_style()
-    show_sidebar()
-    
-    with st.container():
-        st.title("🔄 Processing Trades")
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        for i in range(100):
-            progress_bar.progress(i + 1)
-            status_text.text(f"Processing... {i+1}%")
-            time.sleep(0.03)
-        
-        st.success("Processing complete!")
-        time.sleep(1)
-        st.session_state.current_page = "dashboard"
-        st.rerun()
-
-# ---- MAIN APP ----
-def main():
-    set_app_style()
-    
-    if not st.session_state.auth:
-        login_page()
-    else:
-        if st.session_state.current_page == "dashboard":
-            dashboard_page()
-        elif st.session_state.current_page == "upload":
-            upload_page()
-        elif st.session_state.current_page == "manual":
-            manual_page()
-        elif st.session_state.current_page == "analytics":
-            analytics_page()
-        elif st.session_state.current_page == "settings":
-            settings_page()
-        elif st.session_state.current_page == "processing":
-            processing_page()
-
-if __name__ == "__main__":
-    main()
+        <div class="card">
+            <h2>Recent Trades</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Trade ID</th>
+                            <th>Instrument</th>
+                            <th>Notional</th>
+                            <th>Price</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>FX-2023-0456</td>
+                            <td>EUR/USD</td>
+                            <td>$5,000,000</td>
+                            <td>1.0856</td>
+                            <td>2023-05-15</td>
+                            <td class="status-active">Active</td>
+                        </tr>
+                        <tr>
+                            <td>IRS-2023-0789</td>
+                            <td>10Y IRS</td>
+                            <td>$10,000,000</td>
+                            <td>2.34</td>
+                            <td>2023-05-14</td>
+                            <td class="status-active">Active</td>
+                        </tr>
+                        <tr>
+                            <td>OPT-2023-0321</td>
+                            <td>SPX Call</td>
+                            <td>$2,500,000</td>
+                            <td>35.5</td>
+                            <td>2023-05-13</td>
+                            <td class="status-expired">Expired</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
