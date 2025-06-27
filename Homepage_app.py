@@ -2,7 +2,7 @@ import streamlit as st
 from PIL import Image
 
 # ---- PAGE CONFIG ----
-st.set_page_config(page_title="Ryxon Dashboard", layout="wide")
+st.set_page_config(page_title="Ryxon Dashboard", layout="wide", initial_sidebar_state="expanded")
 
 # ---- BACKGROUND IMAGE ----
 def set_background(image_url):
@@ -60,18 +60,6 @@ st.markdown("""
         }
         .dropdown-content a:hover {
             background-color: #eee;
-        }
-        .back-button {
-            margin-left: 20px;
-            padding: 8px 16px;
-            background-color: #4B0082;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .back-button:hover {
-            background-color: #360061;
         }
     </style>
     <div class="navbar">
@@ -148,8 +136,15 @@ if login_button and username and password:
 
         st.markdown("</div>", unsafe_allow_html=True)
 
-# ---- BACK BUTTON LOGIC ----
+# Back button functionality
 if 'mode' in st.session_state and st.session_state.mode in ["upload", "manual"]:
-    if st.button("⬅ Go Back", key="back"):
-        st.session_state.mode = None
+    if st.button("⬅ Go Back"):
+        del st.session_state.mode
         st.experimental_rerun()
+
+# Always keep sidebar visible
+st.markdown("""
+<style>
+    [data-testid="stSidebar"] { visibility: visible !important; }
+</style>
+""", unsafe_allow_html=True)
