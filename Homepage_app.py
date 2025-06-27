@@ -1,145 +1,155 @@
-# ---- DASHBOARD PAGE ----
-def dashboard_page():
-    # Persistent sidebar implementation
-    if 'sidebar_expanded' not in st.session_state:
-        st.session_state.sidebar_expanded = True
-    
-    # Sidebar toggle button in main content
-    if st.button("☰" if st.session_state.sidebar_expanded else "☰", key="sidebar_toggle"):
-        st.session_state.sidebar_expanded = not st.session_state.sidebar_expanded
-        st.rerun()
-    
-    # Navigation sidebar
-    if st.session_state.sidebar_expanded:
-        with st.sidebar:
-            st.image("https://via.placeholder.com/150x50?text=Ryxon", width=150)
-            st.markdown("## Navigation")
-            
-            if st.button("📊 Dashboard"):
-                st.session_state.current_page = "dashboard"
-                st.rerun()
-            
-            if st.button("📂 Upload Trades"):
-                st.session_state.current_page = "upload"
-                st.rerun()
-            
-            if st.button("✍️ Manual Entry"):
-                st.session_state.current_page = "manual"
-                st.rerun()
-            
-            if st.button("📈 Analytics"):
-                st.session_state.current_page = "analytics"
-                st.rerun()
-            
-            if st.button("⚙️ Settings"):
-                st.session_state.current_page = "settings"
-                st.rerun()
-            
-            st.markdown("---")
-            if st.button("🔒 Logout"):
-                st.session_state.auth = False
-                st.session_state.current_page = "login"
-                st.rerun()
-            
-            # Dark mode toggle
-            st.markdown("---")
-            dark_mode = st.toggle("Dark Mode", value=st.session_state.dark_mode)
-            if dark_mode != st.session_state.dark_mode:
-                st.session_state.dark_mode = dark_mode
-                set_app_style()
-                st.rerun()
+import streamlit as st
+from PIL import Image
 
-    # Main content with back button
-    with st.container():
-        st.title("📊 Trading Dashboard")
-        
-        # Back button (hidden on dashboard since we're already here)
-        if st.session_state.current_page != "dashboard":
-            if st.button("← Back to Dashboard"):
-                st.session_state.current_page = "dashboard"
-                st.rerun()
-        
-        # Rest of your existing dashboard content...
-        # Stats cards, recent trades table, etc.
+# ---- PAGE CONFIG ----
+st.set_page_config(page_title="Ryxon Dashboard", layout="wide")
 
-# ---- FILE UPLOAD ----
-def upload_page():
-    # Persistent sidebar toggle
-    if 'sidebar_expanded' not in st.session_state:
-        st.session_state.sidebar_expanded = True
-    
-    if st.button("☰" if st.session_state.sidebar_expanded else "☰", key="sidebar_toggle"):
-        st.session_state.sidebar_expanded = not st.session_state.sidebar_expanded
-        st.rerun()
-    
-    if st.session_state.sidebar_expanded:
-        with st.sidebar:
-            # Same sidebar content as dashboard_page
-            pass
-    
-    with st.container():
-        st.title("📂 Trade File Upload")
-        
-        # Back button
-        if st.button("← Back to Dashboard"):
-            st.session_state.current_page = "dashboard"
-            st.rerun()
-        
-        # Rest of your existing upload page content...
+# ---- BACKGROUND IMAGE ----
+def set_background(image_url):
+    st.markdown(f"""
+        <style>
+        .stApp {{
+            background-image: url('{image_url}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }}
+        </style>
+    """, unsafe_allow_html=True)
 
-# ---- MANUAL ENTRY ----
-def manual_page():
-    # Persistent sidebar toggle
-    if 'sidebar_expanded' not in st.session_state:
-        st.session_state.sidebar_expanded = True
-    
-    if st.button("☰" if st.session_state.sidebar_expanded else "☰", key="sidebar_toggle"):
-        st.session_state.sidebar_expanded = not st.session_state.sidebar_expanded
-        st.rerun()
-    
-    if st.session_state.sidebar_expanded:
-        with st.sidebar:
-            # Same sidebar content as dashboard_page
-            pass
-    
-    with st.container():
-        st.title("✍️ Manual Trade Entry")
-        
-        # Back button
-        if st.button("← Back to Dashboard"):
-            st.session_state.current_page = "dashboard"
-            st.rerun()
-        
-        # Rest of your existing manual entry content...
+set_background("https://images.unsplash.com/photo-1549921296-3a6b93b2f3ec?auto=format&fit=crop&w=1920&q=80")
 
-# Similarly update analytics_page(), settings_page(), and processing_page() with:
-# 1. The persistent sidebar toggle logic
-# 2. Back button at the top of main content
-# 3. Consistent sidebar content
+# ---- NAVIGATION BAR ----
+st.markdown("""
+    <style>
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: rgba(255, 255, 255, 0.88);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #ddd;
+        }
+        .nav-links {
+            display: flex;
+            align-items: center;
+        }
+        .nav-links a, .dropdown {
+            margin: 0 15px;
+            text-decoration: none;
+            font-weight: 600;
+            color: #4B0082;
+            position: relative;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1;
+            top: 30px;
+        }
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+        .dropdown-content a {
+            display: block;
+            padding: 10px 15px;
+            text-decoration: none;
+            color: #4B0082;
+        }
+        .dropdown-content a:hover {
+            background-color: #eee;
+        }
+        .back-button {
+            margin-left: 20px;
+            padding: 8px 16px;
+            background-color: #4B0082;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .back-button:hover {
+            background-color: #360061;
+        }
+    </style>
+    <div class="navbar">
+        <div class="nav-title">
+            <h2 style="margin: 0; color: #4B0082;">Ryxon Risk Intelligence</h2>
+        </div>
+        <div class="nav-links">
+            <a href="#" onclick="window.location.reload();">Home</a>
+            <a href="#">About</a>
+            <div class="dropdown">Products:
+                <div class="dropdown-content">
+                    <a href="#">Commodity</a>
+                    <a href="#">Equity</a>
+                    <a href="#">Real Estate</a>
+                    <a href="#">Cryptos</a>
+                    <a href="#">Banking Credit</a>
+                </div>
+            </div>
+            <div class="dropdown">Instruments:
+                <div class="dropdown-content">
+                    <a href="#">Futures</a>
+                    <a href="#">Options</a>
+                    <a href="#">Forwards</a>
+                    <a href="#">Swaps</a>
+                </div>
+            </div>
+        </div>
+    </div>
+""", unsafe_allow_html=True)
 
-# ---- MAIN APP ----
-def main():
-    set_app_style()
-    
-    if not st.session_state.auth:
-        login_page()
-    else:
-        # Initialize sidebar state if not exists
-        if 'sidebar_expanded' not in st.session_state:
-            st.session_state.sidebar_expanded = True
-            
-        if st.session_state.current_page == "dashboard":
-            dashboard_page()
-        elif st.session_state.current_page == "upload":
-            upload_page()
-        elif st.session_state.current_page == "manual":
-            manual_page()
-        elif st.session_state.current_page == "analytics":
-            analytics_page()
-        elif st.session_state.current_page == "settings":
-            settings_page()
-        elif st.session_state.current_page == "processing":
-            processing_page()
+# ---- LOGIN SECTION ----
+st.markdown("""
+    <style>
+    .login-box {
+        background-color: rgba(255, 255, 255, 0.95);
+        padding: 2rem;
+        border-radius: 10px;
+        width: 350px;
+        float: right;
+        margin-right: 5%;
+        margin-top: 5%;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-if __name__ == "__main__":
-    main()
+st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+st.subheader("Login to Continue")
+username = st.text_input("Username")
+password = st.text_input("Password", type="password")
+login_button = st.button("Login")
+st.markdown("</div>", unsafe_allow_html=True)
+
+if login_button and username and password:
+    st.session_state.logged_in = True
+    st.success(f"Welcome, {username}! Please select a product.")
+
+    product = st.selectbox("Select Product Type", ["-- Select --", "Commodity", "Equity", "Real Estate", "Cryptos", "Banking Credit"])
+    if product == "Commodity":
+        st.markdown("""
+        <div style='background-color: rgba(255, 255, 255, 0.92); padding: 1.5rem; margin-top: 2rem; border-radius: 10px; width: 40%;'>
+        <h4>Select an Action</h4>
+        """, unsafe_allow_html=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Upload Trade File"):
+                st.session_state.mode = "upload"
+                st.success("You selected to upload a trade file. Proceed to Trade Register.")
+        with col2:
+            if st.button("Create Manual Trade"):
+                st.session_state.mode = "manual"
+                st.success("You selected to create a manual trade. Proceed to Trade Entry.")
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+# ---- BACK BUTTON LOGIC ----
+if 'mode' in st.session_state and st.session_state.mode in ["upload", "manual"]:
+    if st.button("⬅ Go Back", key="back"):
+        st.session_state.mode = None
+        st.experimental_rerun()
