@@ -1,274 +1,145 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import numpy as np
-from PIL import Image
-import base64
-import time
-
-# ---- PAGE CONFIG ----
-st.set_page_config(
-    page_title="Ryxon Dashboard",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# ---- SESSION STATE ----
-if 'show_dashboard' not in st.session_state:
-    st.session_state.show_dashboard = False
-if 'dark_mode' not in st.session_state:
-    st.session_state.dark_mode = False
-if 'df' not in st.session_state:
-    st.session_state.df = None
-
-# ---- BACKGROUND IMAGES ----
-def get_base64_image(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode('utf-8')
-
-# ---- STYLING ----
-def set_app_style():
-    bg_images = {
-        "commodities": "https://images.unsplash.com/photo-1600891964599-f61ba0e24092",
-        "forex": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3",
-        "stocks": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3",
-        "crypto": "https://images.unsplash.com/photo-1621761191319-c6fb62004040"
-    }
-    
-    bg_url = bg_images["commodities"]  # Default background
-    
-    st.markdown(f"""
-        <style>
-        /* Main background with professional market image */
-        .stApp {{
-            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
-                        url('{bg_url}');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            color: white;
-        }}
-        
-        /* Cards with glass morphism effect */
-        .card {{
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 2rem;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-            margin-bottom: 2rem;
-        }}
-        
-        /* Buttons with animation */
-        .stButton>button {{
-            background: linear-gradient(45deg, #6a1b9a, #9c27b0);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 0.5rem 1rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }}
-        .stButton>button:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(106, 27, 154, 0.4);
-        }}
-        
-        /* Hide Streamlit defaults */
-        #MainMenu {{visibility: hidden;}}
-        footer {{visibility: hidden;}}
-        header {{visibility: hidden;}}
-        
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {{
-            width: 8px;
-        }}
-        ::-webkit-scrollbar-track {{
-            background: rgba(255, 255, 255, 0.1);
-        }}
-        ::-webkit-scrollbar-thumb {{
-            background: #6a1b9a;
-            border-radius: 4px;
-        }}
-        </style>
-    """, unsafe_allow_html=True)
-
-# ---- LANDING PAGE ----
-def show_homepage():
-    # Header with logo and title
-    st.markdown("""
-    <div style="display: flex; justify-content: center; margin-bottom: 3rem;">
-        <div style="text-align: center;">
-            <h1 style="color: white; font-size: 3.5rem; margin-bottom: 0.5rem;">Ryxon</h1>
-            <h2 style="color: #b39ddb; font-size: 1.8rem; margin-top: 0;">Trading Risk Intelligence</h2>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Hero section
-    with st.container():
-        st.markdown("""
-        <div class='card'>
-            <h2 style="color: white; text-align: center;">Edge of Trading Risk Management</h2>
-            <p style="font-size: 1.2rem; text-align: center;">
-                An integrated platform for <strong>derivatives, commodities, and exposure</strong> management - 
-                built with intelligence, precision, and speed.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Launch button
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        if st.button("🚀 Launch Dashboard", type="primary", use_container_width=True, key="launch_btn"):
-            st.session_state.show_dashboard = True
-            st.experimental_rerun()
-    
-    # Features grid
-    st.markdown("""
-    <div style="text-align: center; margin: 3rem 0;">
-        <h2 style="color: white;">✨ Key Features</h2>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    features = [
-        ("📊", "Real-time MTM & PnL", "Live mark-to-market and profit/loss tracking", "#7e57c2"),
-        ("🛡️", "Value at Risk", "Parametric & Historical VaR calculations", "#9575cd"),
-        ("📈", "Scenario Testing", "Stress-test positions with custom shocks", "#b39ddb"),
-        ("📉", "PnL Analysis", "Unrealized vs Realized breakdown", "#d1c4e9"),
-        ("🧠", "Dynamic Filtering", "Filter by commodity, instrument, strategy", "#7e57c2"),
-        ("🌍", "Exposure Analysis", "Visualize by commodity/instrument", "#9575cd")
-    ]
-    
-    cols = st.columns(3)
-    for i, (icon, title, desc, color) in enumerate(features):
-        with cols[i % 3]:
-            with st.container():
-                st.markdown(f"""
-                <div class='card' style="border-color: {color};">
-                    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                        <span style="font-size: 2rem; margin-right: 1rem; color: {color};">{icon}</span>
-                        <h3 style="color: white; margin: 0;">{title}</h3>
-                    </div>
-                    <p style="color: #e0e0e0;">{desc}</p>
-                </div>
-                """, unsafe_allow_html=True)
-
 # ---- DASHBOARD PAGE ----
 def show_dashboard():
     # Sidebar navigation
     with st.sidebar:
-        st.markdown("""
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <h2 style="color: white;">Ryxon</h2>
-            <p style="color: #b39ddb;">Risk Dashboard</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Navigation buttons
-        nav_options = {
-            "📊 Dashboard": "dashboard",
-            "📂 Trade Register": "register",
-            "✍️ Trade Entry": "entry",
-            "📈 Analytics": "analytics",
-            "⚙️ Settings": "settings"
-        }
-        
-        for label, page in nav_options.items():
-            if st.button(label, use_container_width=True, key=f"nav_{page}"):
-                st.session_state.current_page = page
-        
-        st.markdown("---")
+        st.image("https://raw.githubusercontent.com/idjk-market/ryxon-dashboard/main/ryxon_logo.png", width=120)
+        st.markdown("## Navigation")
         
         # Dark mode toggle
-        dark_mode = st.toggle("Dark Mode", value=st.session_state.dark_mode, key="dark_mode_toggle")
+        dark_mode = st.toggle("Dark Mode", value=st.session_state.dark_mode)
         if dark_mode != st.session_state.dark_mode:
             st.session_state.dark_mode = dark_mode
             set_app_style()
-            st.experimental_rerun()
+            st.rerun()
         
         st.markdown("---")
-        
-        if st.button("🏠 Back to Home", key="home_btn"):
+        if st.button("🏠 Back to Home"):
             st.session_state.show_dashboard = False
-            st.experimental_rerun()
+            st.rerun()
     
     # Main dashboard content
     st.title("📊 Trading Dashboard")
     
-    # File uploader with enhanced UI
-    with st.expander("📤 Upload Trade Data", expanded=True):
-        uploaded_file = st.file_uploader(
-            "Choose a CSV or Excel file",
-            type=["csv", "xlsx"],
-            key="file_uploader",
-            help="Upload your trade register file"
-        )
+    # Add tab navigation for upload vs manual entry
+    tab1, tab2 = st.tabs(["📤 Upload Trade File", "✍️ Create Manual Trade"])
+    
+    with tab1:
+        # File uploader
+        uploaded_file = st.file_uploader("Upload your trade file (CSV or Excel)", type=["csv", "xlsx"], key="file_uploader")
         
         if uploaded_file:
             try:
-                with st.spinner("Processing your trades..."):
-                    if uploaded_file.name.endswith('.csv'):
-                        df = pd.read_csv(uploaded_file)
-                    else:
-                        df = pd.read_excel(uploaded_file)
+                # Read file
+                if uploaded_file.name.endswith('.csv'):
+                    df = pd.read_csv(uploaded_file)
+                else:
+                    df = pd.read_excel(uploaded_file)
+                
+                # Process data
+                required_cols = ['Market Price', 'Book Price', 'Quantity']
+                if not all(col in df.columns for col in required_cols):
+                    st.error("Missing required columns: Market Price, Book Price, Quantity")
+                    st.stop()
+                
+                df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
+                st.session_state.df = df
+                display_trade_data(df)
                     
-                    # Add sample data if needed for demo
-                    if len(df) == 0:
-                        st.warning("File is empty. Using sample data for demo.")
-                        df = pd.DataFrame({
-                            'Instrument': ['Gold Futures', 'Crude Oil', 'EUR/USD'],
-                            'Quantity': [100, 500, 1000000],
-                            'Price': [1850.50, 72.30, 1.0850],
-                            'Market Price': [1865.25, 71.80, 1.0825],
-                            'Trade Date': pd.date_range(start='2023-01-01', periods=3)
-                        })
-                    
-                    # Calculate MTM
-                    df['MTM'] = (df['Market Price'] - df['Price']) * df['Quantity']
-                    st.session_state.df = df
-                    st.success("Data loaded successfully!")
-            
             except Exception as e:
-                st.error(f"Error processing file: {str(e)}")
-                st.session_state.df = None
+                st.error(f"Error processing file: {e}")
     
-    # Display data if available
-    if st.session_state.df is not None:
-        df = st.session_state.df
-        
-        # Summary metrics
-        st.markdown("### 📊 Trade Summary")
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Positions", len(df))
-        col2.metric("Total MTM", f"${df['MTM'].sum():,.2f}")
-        col3.metric("Avg. Price", f"${df['Price'].mean():.2f}")
-        col4.metric("Total Quantity", f"{df['Quantity'].sum():,.0f}")
-        
-        # Data visualization
-        st.markdown("### 📈 Data Visualization")
-        tab1, tab2 = st.tabs(["MTM Analysis", "Exposure Breakdown"])
-        
-        with tab1:
-            fig = px.bar(df, x='Instrument', y='MTM', color='Instrument', title="MTM by Instrument")
+    with tab2:
+        # Manual Trade Entry Form
+        with st.form("manual_trade_form"):
+            st.subheader("Create New Trade")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                trade_date = st.date_input("Trade Date", datetime.now())
+                instrument = st.selectbox("Instrument Type", ["Equity", "Commodity", "FX", "Fixed Income", "Derivative"])
+                quantity = st.number_input("Quantity", min_value=1, value=100)
+                
+            with col2:
+                trade_id = st.text_input("Trade ID", value=f"TRD-{datetime.now().strftime('%Y%m%d')}-001")
+                price = st.number_input("Price", min_value=0.0, value=100.0, step=0.01)
+                direction = st.radio("Direction", ["Buy", "Sell"])
+            
+            notes = st.text_area("Notes")
+            
+            if st.form_submit_button("Submit Trade"):
+                # Create trade dictionary
+                new_trade = {
+                    'Trade ID': trade_id,
+                    'Trade Date': trade_date,
+                    'Instrument Type': instrument,
+                    'Quantity': quantity,
+                    'Book Price': price,
+                    'Market Price': price,  # Assuming same as book price initially
+                    'Trade Action': direction,
+                    'Notes': notes,
+                    'MTM': 0  # Will be calculated
+                }
+                
+                # Add to existing data or create new dataframe
+                if 'df' not in st.session_state:
+                    st.session_state.df = pd.DataFrame(columns=list(new_trade.keys()))
+                
+                st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_trade])], ignore_index=True)
+                st.success("Trade successfully added!")
+                st.rerun()
+    
+    # Display trade data if exists
+    if 'df' in st.session_state and st.session_state.df is not None:
+        display_trade_data(st.session_state.df)
+
+def display_trade_data(df):
+    """Helper function to display trade data metrics and visualizations"""
+    # Display metrics
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total MTM", f"${df['MTM'].sum():,.2f}")
+    col2.metric("Positions", len(df))
+    col3.metric("Avg Price", f"${df['Book Price'].mean():.2f}")
+    col4.metric("Total Quantity", f"{df['Quantity'].sum():,.0f}")
+    
+    # Filters
+    st.subheader("🔍 Filters")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        instrument = st.selectbox("Instrument", ["All"] + sorted(df['Instrument Type'].dropna().unique()), key="inst_filter")
+    with col2:
+        commodity = st.selectbox("Commodity", ["All"] + sorted(df['Commodity'].dropna().unique())) if 'Commodity' in df.columns else st.selectbox("Commodity", ["All"])
+    with col3:
+        direction = st.selectbox("Direction", ["All"] + sorted(df['Trade Action'].dropna().unique()), key="dir_filter")
+    
+    # Apply filters
+    filtered_df = df.copy()
+    if instrument != "All":
+        filtered_df = filtered_df[filtered_df['Instrument Type'] == instrument]
+    if 'Commodity' in df.columns and commodity != "All":
+        filtered_df = filtered_df[filtered_df['Commodity'] == commodity]
+    if direction != "All":
+        filtered_df = filtered_df[filtered_df['Trade Action'] == direction]
+    
+    # Show filtered data
+    st.dataframe(filtered_df, use_container_width=True)
+    
+    # Charts
+    st.subheader("📊 Visualizations")
+    tab1, tab2, tab3 = st.tabs(["MTM Distribution", "Exposure by Commodity", "PnL Trend"])
+    
+    with tab1:
+        fig = px.histogram(filtered_df, x="MTM", nbins=30, title="MTM Distribution")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with tab2:
+        if 'Commodity' in filtered_df.columns:
+            exposure = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
+            fig = px.bar(exposure, x='Commodity', y='MTM', title="Exposure by Commodity")
             st.plotly_chart(fig, use_container_width=True)
-        
-        with tab2:
-            if 'Instrument' in df.columns:
-                exposure = df.groupby('Instrument')['Quantity'].sum().reset_index()
-                fig = px.pie(exposure, values='Quantity', names='Instrument', title="Exposure Distribution")
-                st.plotly_chart(fig, use_container_width=True)
-        
-        # Raw data view
-        st.markdown("### 🔍 Raw Data View")
-        st.dataframe(df, use_container_width=True)
-
-# ---- MAIN APP ----
-set_app_style()
-
-if not st.session_state.show_dashboard:
-    show_homepage()
-else:
-    show_dashboard()
+    
+    with tab3:
+        if 'Trade Date' in filtered_df.columns:
+            filtered_df['Trade Date'] = pd.to_datetime(filtered_df['Trade Date'])
+            daily = filtered_df.groupby('Trade Date')['MTM'].sum().reset_index()
+            fig = px.line(daily, x='Trade Date', y='MTM', title="Daily PnL Trend")
+            st.plotly_chart(fig, use_container_width=True)
