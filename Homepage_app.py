@@ -1,110 +1,102 @@
 import streamlit as st
-from PIL import Image
-import base64
+from streamlit_option_menu import option_menu
 
 # ---- PAGE CONFIG ----
-st.set_page_config(page_title="Ryxon Dashboard", layout="wide")
+st.set_page_config(
+    page_title="Ryxon Financial Platform",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# ---- BACKGROUND IMAGE ----
-def set_background(image_url):
+# ---- BACKGROUND STYLE ----
+def set_homepage_style():
     st.markdown(f"""
-        <style>
-        .stApp {{
-            background-image: url('{image_url}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
-        </style>
+    <style>
+    .stApp {{
+        background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)),
+                    url('https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3');
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+    .product-card {{
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 10px;
+        padding: 2rem;
+        margin: 1rem 0;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }}
+    .section-title {{
+        color: white;
+        font-size: 1.5rem;
+        margin-top: 2rem;
+        border-bottom: 2px solid white;
+        padding-bottom: 0.5rem;
+    }}
+    </style>
     """, unsafe_allow_html=True)
 
-set_background("https://images.unsplash.com/photo-1611078489935-b0379236fbd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=1650&q=80")
+# ---- SESSION STATE ----
+if 'current_product' not in st.session_state:
+    st.session_state.current_product = None
 
-# ---- NAVIGATION BAR ----
-st.markdown("""
-    <style>
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: rgba(255, 255, 255, 0.85);
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #ddd;
-        }
-        .nav-links a {
-            margin: 0 15px;
-            text-decoration: none;
-            font-weight: 600;
-            color: #4B0082;
-        }
-        .nav-links a:hover {
-            text-decoration: underline;
-        }
-    </style>
-    <div class="navbar">
-        <div class="nav-title">
-            <h2 style="margin: 0; color: #4B0082;">Ryxon Risk Intelligence</h2>
-        </div>
-        <div class="nav-links">
-            <a href="#">Home</a>
-            <a href="#">About</a>
-            <span style="font-weight: 600;">Products:</span>
-            <a href="#">Commodity</a>
-            <a href="#">Equity</a>
-            <a href="#">Real Estate</a>
-            <a href="#">Cryptos</a>
-            <a href="#">Banking Credit</a>
-            <span style="font-weight: 600;">Instruments:</span>
-            <a href="#">Futures</a>
-            <a href="#">Options</a>
-            <a href="#">Forwards</a>
-            <a href="#">Swaps</a>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+# ---- PRODUCT DATA ----
+PRODUCTS = {
+    "Commodity": ["Energy", "Metals", "Agriculture"],
+    "Equity": ["Stocks", "ETFs", "Indices"],
+    "Real Estate": ["REITs", "Property Derivatives"],
+    "Cryptocurrencies": ["Spot", "Futures"],
+    "Banking & Credit": ["Loans", "Bonds", "Swaps"]
+}
 
-# ---- LOGIN SECTION ----
-st.markdown("""
-    <style>
-    .login-box {
-        background-color: rgba(255, 255, 255, 0.95);
-        padding: 2rem;
-        border-radius: 10px;
-        width: 350px;
-        float: right;
-        margin-right: 5%;
-        margin-top: 5%;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    </style>
-""", unsafe_allow_html=True)
+INSTRUMENTS = ["Futures", "Options", "Forwards", "Swaps"]
 
-st.markdown("<div class='login-box'>", unsafe_allow_html=True)
-st.subheader("Login to Continue")
-username = st.text_input("Username")
-password = st.text_input("Password", type="password")
-login_button = st.button("Login")
-st.markdown("</div>", unsafe_allow_html=True)
+# ---- HOMEPAGE ----
+def show_homepage():
+    set_homepage_style()
+    
+    # Main title
+    st.markdown("<h1 style='color: white; text-align: center;'>Ryxon Financial Platform</h1>", 
+                unsafe_allow_html=True)
+    
+    # Products section
+    st.markdown('<div class="section-title">Products</div>', unsafe_allow_html=True)
+    
+    cols = st.columns(len(PRODUCTS))
+    for i, (product, subproducts) in enumerate(PRODUCTS.items()):
+        with cols[i]:
+            with st.container():
+                st.markdown(f"""
+                <div class="product-card">
+                    <h3>{product}</h3>
+                    <ul style="margin-left: 1rem;">
+                        {''.join(f'<li>{sp}</li>' for sp in subproducts)}
+                    </ul>
+                    <button onclick="window.streamlit.setComponentValue('{product.lower()}')" 
+                            style="background: #4B0082; color: white; border: none; padding: 0.5rem 1rem; border-radius: 5px; cursor: pointer;">
+                        Access {product}
+                    </button>
+                </div>
+                """, unsafe_allow_html=True)
+    
+    # Instruments section
+    st.markdown('<div class="section-title">Instruments</div>', unsafe_allow_html=True)
+    
+    instrument_cols = st.columns(4)
+    for i, instrument in enumerate(INSTRUMENTS):
+        with instrument_cols[i % 4]:
+            st.markdown(f"""
+            <div style="background: rgba(255,255,255,0.9); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; text-align: center;">
+                <h4>{instrument}</h4>
+            </div>
+            """, unsafe_allow_html=True)
 
-if login_button and username and password:
-    st.session_state.logged_in = True
-    st.success(f"Welcome, {username}! Please select a product.")
+# Handle product selection
+if st.query_params.get("product"):
+    st.session_state.current_product = st.query_params.get("product")
+    if st.session_state.current_product == "commodity":
+        st.switch_page("pages/commodity.py")
 
-    product = st.selectbox("Select Product Type", ["-- Select --", "Commodity", "Equity", "Real Estate", "Cryptos", "Banking Credit"])
-    if product == "Commodity":
-        st.markdown("""
-        <div style='background-color: rgba(255, 255, 255, 0.92); padding: 1.5rem; margin-top: 2rem; border-radius: 10px; width: 40%;'>
-        <h4>Select an Action</h4>
-        """, unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("Upload Trade File"):
-                st.session_state.mode = "upload"
-                st.success("You selected to upload a trade file. Proceed to Trade Register.")
-        with col2:
-            if st.button("Create Manual Trade"):
-                st.session_state.mode = "manual"
-                st.success("You selected to create a manual trade. Proceed to Trade Entry.")
-
-        st.markdown("</div>", unsafe_allow_html=True)
+# ---- MAIN APP ----
+if __name__ == "__main__":
+    show_homepage()
