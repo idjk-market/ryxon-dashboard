@@ -15,131 +15,153 @@ def show_dashboard():
         st.markdown("---")
         if st.button("🏠 Back to Home"):
             st.session_state.show_dashboard = False
+            st.session_state.df = None  # Clear data when going back
             st.rerun()
+    
+    # Initialize dataframe in session state if not exists
+    if 'df' not in st.session_state:
+        st.session_state.df = None
     
     # Main dashboard content
     st.title("📊 Trading Dashboard")
     
-    # Add tab navigation for upload vs manual entry
+    # Tab navigation
     tab1, tab2 = st.tabs(["📤 Upload Trade File", "✍️ Create Manual Trade"])
     
     with tab1:
-        # File uploader
         uploaded_file = st.file_uploader("Upload your trade file (CSV or Excel)", type=["csv", "xlsx"], key="file_uploader")
         
         if uploaded_file:
             try:
-                # Read file
-                if uploaded_file.name.endswith('.csv'):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
-                
-                # Process data
-                required_cols = ['Market Price', 'Book Price', 'Quantity']
-                if not all(col in df.columns for col in required_cols):
-                    st.error("Missing required columns: Market Price, Book Price, Quantity")
-                    st.stop()
-                
-                df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
-                st.session_state.df = df
-                display_trade_data(df)
+                with st.spinner("Processing trades..."):
+                    # Read file
+                    if uploaded_file.name.endswith('.csv'):
+                        df = pd.read_csv(uploaded_file)
+                    else:
+                        df = pd.read_excel(uploaded_file)
                     
+                    # Validate required columns
+                    required_cols = ['Market Price', 'Book Price', 'Quantity']
+                    if not all(col in df.columns for col in required_cols):
+                        st.error(f"Missing required columns: {', '.join(required_cols)}")
+                    else:
+                        # Calculate MTM
+                        df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
+                        st.session_state.df = df
+                        st.success("File processed successfully!")
+                        
             except Exception as e:
-                st.error(f"Error processing file: {e}")
+                st.error(f"Error processing file: {str(e)}")
     
     with tab2:
-        # Manual Trade Entry Form
-        with st.form("manual_trade_form"):
-            st.subheader("Create New Trade")
+        with st.form("manual_trade_form", clear_on_submit=True):
+            st.subheader("Create New Trade Entry")
             
             col1, col2 = st.columns(2)
             with col1:
-                trade_date = st.date_input("Trade Date", datetime.now())
-                instrument = st.selectbox("Instrument Type", ["Equity", "Commodity", "FX", "Fixed Income", "Derivative"])
-                quantity = st.number_input("Quantity", min_value=1, value=100)
+                trade_id = st.text_input("Trade ID*", value=f"TRD-{datetime.now().strftime('%Y%m%d')}-")
+                instrument = st.selectbox("Instrument Type*", ["Equity", "Commodity", "FX", "Fixed Income", "Derivative"])
+                quantity = st.number_input("Quantity*", min_value=1, value=100)
                 
             with col2:
-                trade_id = st.text_input("Trade ID", value=f"TRD-{datetime.now().strftime('%Y%m%d')}-001")
-                price = st.number_input("Price", min_value=0.0, value=100.0, step=0.01)
-                direction = st.radio("Direction", ["Buy", "Sell"])
+                trade_date = st.date_input("Trade Date*", datetime.now())
+                price = st.number_input("Price*", min_value=0.0, value=100.0, step=0.01)
+                direction = st.radio("Direction*", ["Buy", "Sell"])
             
             notes = st.text_area("Notes")
             
             if st.form_submit_button("Submit Trade"):
-                # Create trade dictionary
-                new_trade = {
-                    'Trade ID': trade_id,
-                    'Trade Date': trade_date,
-                    'Instrument Type': instrument,
-                    'Quantity': quantity,
-                    'Book Price': price,
-                    'Market Price': price,  # Assuming same as book price initially
-                    'Trade Action': direction,
-                    'Notes': notes,
-                    'MTM': 0  # Will be calculated
-                }
-                
-                # Add to existing data or create new dataframe
-                if 'df' not in st.session_state:
-                    st.session_state.df = pd.DataFrame(columns=list(new_trade.keys()))
-                
-                st.session_state.df = pd.concat([st.session_state.df, pd.DataFrame([new_trade])], ignore_index=True)
-                st.success("Trade successfully added!")
-                st.rerun()
+                if not trade_id:
+                    st.error("Please enter a Trade ID")
+                else:
+                    # Create new trade record
+                    new_trade = pd.DataFrame([{
+                        'Trade ID': trade_id,
+                        'Trade Date': trade_date,
+                        'Instrument Type': instrument,
+                        'Quantity': quantity,
+                        'Book Price': price,
+                        'Market Price': price,  # Same as book price initially
+                        'Trade Action': direction,
+                        'Notes': notes,
+                        'MTM': 0  # Will be calculated later
+                    }])
+                    
+                    # Add to existing data or create new dataframe
+                    if st.session_state.df is None:
+                        st.session_state.df = new_trade
+                    else:
+                        st.session_state.df = pd.concat([st.session_state.df, new_trade], ignore_index=True)
+                    
+                    st.success("Trade successfully added!")
     
     # Display trade data if exists
-    if 'df' in st.session_state and st.session_state.df is not None:
+    if st.session_state.df is not None:
         display_trade_data(st.session_state.df)
+    else:
+        st.info("Please upload a trade file or create a manual trade to begin")
 
 def display_trade_data(df):
     """Helper function to display trade data metrics and visualizations"""
+    # Calculate MTM if not already present
+    if 'MTM' not in df.columns:
+        if 'Market Price' in df.columns and 'Book Price' in df.columns and 'Quantity' in df.columns:
+            df['MTM'] = (df['Market Price'] - df['Book Price']) * df['Quantity']
+        else:
+            df['MTM'] = 0  # Default to 0 if we can't calculate
+    
     # Display metrics
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total MTM", f"${df['MTM'].sum():,.2f}")
-    col2.metric("Positions", len(df))
-    col3.metric("Avg Price", f"${df['Book Price'].mean():.2f}")
-    col4.metric("Total Quantity", f"{df['Quantity'].sum():,.0f}")
+    st.markdown("---")
+    st.subheader("Trade Analysis")
+    
+    cols = st.columns(4)
+    cols[0].metric("Total Positions", len(df))
+    cols[1].metric("Total Quantity", f"{df['Quantity'].sum():,}")
+    
+    if 'Book Price' in df.columns:
+        cols[2].metric("Avg Price", f"${df['Book Price'].mean():.2f}")
+    if 'MTM' in df.columns:
+        cols[3].metric("Total MTM", f"${df['MTM'].sum():,.2f}")
     
     # Filters
     st.subheader("🔍 Filters")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        instrument = st.selectbox("Instrument", ["All"] + sorted(df['Instrument Type'].dropna().unique()), key="inst_filter")
-    with col2:
-        commodity = st.selectbox("Commodity", ["All"] + sorted(df['Commodity'].dropna().unique())) if 'Commodity' in df.columns else st.selectbox("Commodity", ["All"])
-    with col3:
-        direction = st.selectbox("Direction", ["All"] + sorted(df['Trade Action'].dropna().unique()), key="dir_filter")
+    filter_cols = st.columns(3)
+    
+    with filter_cols[0]:
+        instrument_filter = st.selectbox(
+            "Instrument Type",
+            ["All"] + sorted(df['Instrument Type'].unique()) if 'Instrument Type' in df.columns else st.selectbox("Instrument Type", ["All"])
+    
+    with filter_cols[1]:
+        direction_filter = st.selectbox(
+            "Direction",
+            ["All"] + sorted(df['Trade Action'].unique())) if 'Trade Action' in df.columns else st.selectbox("Direction", ["All"])
     
     # Apply filters
     filtered_df = df.copy()
-    if instrument != "All":
-        filtered_df = filtered_df[filtered_df['Instrument Type'] == instrument]
-    if 'Commodity' in df.columns and commodity != "All":
-        filtered_df = filtered_df[filtered_df['Commodity'] == commodity]
-    if direction != "All":
-        filtered_df = filtered_df[filtered_df['Trade Action'] == direction]
+    if instrument_filter != "All":
+        filtered_df = filtered_df[filtered_df['Instrument Type'] == instrument_filter]
+    if direction_filter != "All":
+        filtered_df = filtered_df[filtered_df['Trade Action'] == direction_filter]
     
     # Show filtered data
     st.dataframe(filtered_df, use_container_width=True)
     
-    # Charts
+    # Visualizations
     st.subheader("📊 Visualizations")
-    tab1, tab2, tab3 = st.tabs(["MTM Distribution", "Exposure by Commodity", "PnL Trend"])
+    viz_tabs = st.tabs(["MTM Distribution", "Exposure Breakdown"])
     
-    with tab1:
-        fig = px.histogram(filtered_df, x="MTM", nbins=30, title="MTM Distribution")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with tab2:
-        if 'Commodity' in filtered_df.columns:
-            exposure = filtered_df.groupby('Commodity')['MTM'].sum().reset_index()
-            fig = px.bar(exposure, x='Commodity', y='MTM', title="Exposure by Commodity")
+    with viz_tabs[0]:
+        if 'MTM' in filtered_df.columns:
+            fig = px.histogram(filtered_df, x="MTM", nbins=20, title="MTM Distribution")
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("MTM data not available for visualization")
     
-    with tab3:
-        if 'Trade Date' in filtered_df.columns:
-            filtered_df['Trade Date'] = pd.to_datetime(filtered_df['Trade Date'])
-            daily = filtered_df.groupby('Trade Date')['MTM'].sum().reset_index()
-            fig = px.line(daily, x='Trade Date', y='MTM', title="Daily PnL Trend")
+    with viz_tabs[1]:
+        if 'Instrument Type' in filtered_df.columns:
+            exposure = filtered_df.groupby('Instrument Type')['Quantity'].sum().reset_index()
+            fig = px.pie(exposure, values='Quantity', names='Instrument Type', title="Exposure by Instrument Type")
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.warning("Instrument Type data not available for exposure analysis")
