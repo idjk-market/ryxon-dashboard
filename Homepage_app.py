@@ -1,14 +1,14 @@
 import streamlit as st
 import pandas as pd
 
-# Configure page
+# Configure page with light theme
 st.set_page_config(
     page_title="Trading Dashboard",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS for light theme
 st.markdown("""
 <style>
     :root {
@@ -16,35 +16,40 @@ st.markdown("""
         --success-color: #00C853;
         --warning-color: #FFAB00;
         --danger-color: #D50000;
-        --bg-color: #0E1117;
-        --card-color: #1E1E1E;
-        --text-color: #FAFAFA;
-        --border-color: #333333;
+        --bg-color: #FFFFFF;
+        --card-color: #F8F9FA;
+        --text-color: #212529;
+        --border-color: #DFE3E7;
+    }
+    
+    body {
+        background-color: var(--bg-color);
+        color: var(--text-color);
     }
     
     .metric-card {
         background-color: var(--card-color);
-        border-radius: 10px;
+        border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
+        border: 1px solid var(--border-color);
     }
     
     .metric-title {
-        color: #9E9E9E;
-        font-size: 1.2rem;
-        margin-bottom: 10px;
+        color: #6C757D;
+        font-size: 1rem;
+        margin-bottom: 8px;
+        font-weight: 500;
     }
     
     .metric-value {
-        font-size: 2.5rem;
-        font-weight: bold;
+        font-size: 1.8rem;
+        font-weight: 600;
         margin-bottom: 5px;
     }
     
     .metric-change {
-        display: flex;
-        align-items: center;
-        font-size: 1rem;
+        font-size: 0.9rem;
     }
     
     .positive {
@@ -53,20 +58,23 @@ st.markdown("""
     
     .status-active {
         color: var(--success-color);
+        font-weight: 500;
     }
     
     .status-expired {
-        color: #9E9E9E;
+        color: #6C757D;
+    }
+    
+    /* Table styling */
+    .stDataFrame {
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
     }
     
     /* Sidebar styling */
     [data-testid="stSidebar"] {
-        background-color: var(--card-color) !important;
-    }
-    
-    /* Main content area */
-    .main .block-container {
-        background-color: var(--bg-color);
+        background-color: #F8F9FA !important;
+        border-right: 1px solid var(--border-color) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -84,13 +92,13 @@ with st.sidebar:
     
     st.divider()
     
-    # Dark mode toggle
-    dark_mode = st.toggle("Dark Mode", value=True)
+    # Theme toggle
+    dark_mode = st.toggle("Dark Mode", value=False)
 
 # Main content
 st.title("Dashboard")
 
-# Metrics cards
+# Metrics cards in columns
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -123,31 +131,46 @@ with col3:
 # Recent trades table
 st.subheader("Recent Trades")
 
-# Create a DataFrame with the trades data
+# Create DataFrame
 trades_data = {
     "Trade ID": ["FX-2023-0456", "IRS-2023-0789", "OPT-2023-0321"],
     "Instrument": ["EUR/USD", "10Y IRS", "SPX Call"],
     "Notional": ["$5,000,000", "$10,000,000", "$2,500,000"],
-    "Price": [1.0856, 2.34, 35.5],
+    "Price": [1.0856, 2.3400, 35.5000],
     "Date": ["2023-05-15", "2023-05-14", "2023-05-13"],
     "Status": ["Active", "Active", "Expired"]
 }
 trades_df = pd.DataFrame(trades_data)
 
-# Style the DataFrame
-def style_status(val):
-    color = "var(--success-color)" if val == "Active" else "#9E9E9E"
-    return f"color: {color}"
-
-styled_df = trades_df.style.applymap(style_status, subset=["Status"])
-
-# Display the styled DataFrame
+# Format the DataFrame display
 st.dataframe(
-    styled_df,
+    trades_df,
     use_container_width=True,
     hide_index=True,
     column_config={
         "Price": st.column_config.NumberColumn(format="%.4f"),
-        "Date": st.column_config.DateColumn()
+        "Date": st.column_config.DateColumn(),
+        "Status": st.column_config.TextColumn()
     }
 )
+
+# Additional metrics at bottom
+col4, col5 = st.columns(2)
+
+with col4:
+    st.markdown("""
+    <div class="metric-card">
+        <div class="metric-title">Risk Exposure</div>
+        <div class="metric-value">$4.2M</div>
+        <div class="metric-change positive">↑ Within limits</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col5:
+    st.markdown("""
+    <div class="metric-card">
+        <div class="metric-title">Today's P&L</div>
+        <div class="metric-value">$124K</div>
+        <div class="metric-change positive">↑ +2.4% MTD</div>
+    </div>
+    """, unsafe_allow_html=True)
