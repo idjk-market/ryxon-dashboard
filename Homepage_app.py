@@ -1,150 +1,203 @@
 import streamlit as st
-from PIL import Image
+import pandas as pd
+import plotly.express as px
+from datetime import datetime
+import time
+import base64
+import logging
+from io import StringIO
 
-# ---- PAGE CONFIG ----
-st.set_page_config(page_title="Ryxon Dashboard", layout="wide", initial_sidebar_state="expanded")
+# ---- CONFIGURATION ----
+st.set_page_config(
+    page_title="Ryxon Pro",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# ---- BACKGROUND IMAGE ----
-def set_background(image_url):
+# Initialize session state
+if 'auth' not in st.session_state:
+    st.session_state.auth = False
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "login"
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+if 'sidebar_expanded' not in st.session_state:
+    st.session_state.sidebar_expanded = True
+
+# ---- STYLING ----
+def set_app_style():
+    bg_color = "#0E1117" if st.session_state.dark_mode else "#FFFFFF"
+    text_color = "#FFFFFF" if st.session_state.dark_mode else "#000000"
+    
     st.markdown(f"""
-        <style>
-        .stApp {{
-            background-image: url('{image_url}');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
-        </style>
+    <style>
+    /* Main styling */
+    .stApp {{
+        background-color: {bg_color};
+        color: {text_color};
+    }}
+    
+    /* Cards */
+    .card {{
+        background-color: {"rgba(30, 30, 30, 0.9)" if st.session_state.dark_mode else "rgba(255, 255, 255, 0.93)"};
+        border-radius: 10px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 15px {"rgba(0, 0, 0, 0.3)" if st.session_state.dark_mode else "rgba(0, 0, 0, 0.1)"};
+        margin-bottom: 1.5rem;
+    }}
+    
+    /* Buttons */
+    .stButton>button {{
+        transition: all 0.3s ease;
+        border: 1px solid {"#6a1b9a" if st.session_state.dark_mode else "#f63366"};
+    }}
+    .stButton>button:hover {{
+        transform: scale(1.02);
+        box-shadow: 0 2px 10px {"rgba(106, 27, 154, 0.5)" if st.session_state.dark_mode else "rgba(246, 51, 102, 0.5)"};
+    }}
+    
+    /* Hide Streamlit defaults */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+    </style>
     """, unsafe_allow_html=True)
 
-set_background("https://images.unsplash.com/photo-1549921296-3a6b93b2f3ec?auto=format&fit=crop&w=1920&q=80")
+# ---- SIDEBAR COMPONENT ----
+def show_sidebar():
+    with st.sidebar:
+        st.image("https://via.placeholder.com/150x50?text=Ryxon", width=150)
+        st.markdown("## Navigation")
+        
+        nav_items = {
+            "📊 Dashboard": "dashboard",
+            "📂 Upload Trades": "upload",
+            "✍️ Manual Entry": "manual",
+            "📈 Analytics": "analytics",
+            "⚙️ Settings": "settings"
+        }
+        
+        for label, page in nav_items.items():
+            if st.button(label, use_container_width=True):
+                st.session_state.current_page = page
+                st.rerun()
+        
+        st.markdown("---")
+        if st.button("🔒 Logout", use_container_width=True):
+            st.session_state.auth = False
+            st.session_state.current_page = "login"
+            st.rerun()
+        
+        # Dark mode toggle
+        st.markdown("---")
+        dark_mode = st.toggle("Dark Mode", value=st.session_state.dark_mode)
+        if dark_mode != st.session_state.dark_mode:
+            st.session_state.dark_mode = dark_mode
+            set_app_style()
+            st.rerun()
 
-# ---- NAVIGATION BAR ----
-st.markdown("""
-    <style>
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: rgba(255, 255, 255, 0.88);
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #ddd;
-        }
-        .nav-links {
-            display: flex;
-            align-items: center;
-        }
-        .nav-links a, .dropdown {
-            margin: 0 15px;
-            text-decoration: none;
-            font-weight: 600;
-            color: #4B0082;
-            position: relative;
-        }
-        .dropdown-content {
-            display: none;
-            position: absolute;
-            background-color: #f9f9f9;
-            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-            z-index: 1;
-            top: 30px;
-        }
-        .dropdown:hover .dropdown-content {
-            display: block;
-        }
-        .dropdown-content a {
-            display: block;
-            padding: 10px 15px;
-            text-decoration: none;
-            color: #4B0082;
-        }
-        .dropdown-content a:hover {
-            background-color: #eee;
-        }
-    </style>
-    <div class="navbar">
-        <div class="nav-title">
-            <h2 style="margin: 0; color: #4B0082;">Ryxon Risk Intelligence</h2>
-        </div>
-        <div class="nav-links">
-            <a href="#" onclick="window.location.reload();">Home</a>
-            <a href="#">About</a>
-            <div class="dropdown">Products:
-                <div class="dropdown-content">
-                    <a href="#">Commodity</a>
-                    <a href="#">Equity</a>
-                    <a href="#">Real Estate</a>
-                    <a href="#">Cryptos</a>
-                    <a href="#">Banking Credit</a>
-                </div>
-            </div>
-            <div class="dropdown">Instruments:
-                <div class="dropdown-content">
-                    <a href="#">Futures</a>
-                    <a href="#">Options</a>
-                    <a href="#">Forwards</a>
-                    <a href="#">Swaps</a>
-                </div>
-            </div>
-        </div>
-    </div>
-""", unsafe_allow_html=True)
+# ---- PAGE COMPONENTS ----
+def login_page():
+    with st.container():
+        st.title("🔒 Ryxon Authentication")
+        
+        with st.form("login_form"):
+            username = st.text_input("Username")
+            password = st.text_input("Password", type="password")
+            
+            if st.form_submit_button("Login"):
+                if username == "admin" and password == "ryxon123":
+                    st.session_state.auth = True
+                    st.session_state.current_page = "dashboard"
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
 
-# ---- LOGIN SECTION ----
-st.markdown("""
-    <style>
-    .login-box {
-        background-color: rgba(255, 255, 255, 0.95);
-        padding: 2rem;
-        border-radius: 10px;
-        width: 350px;
-        float: right;
-        margin-right: 5%;
-        margin-top: 5%;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-st.markdown("<div class='login-box'>", unsafe_allow_html=True)
-st.subheader("Login to Continue")
-username = st.text_input("Username")
-password = st.text_input("Password", type="password")
-login_button = st.button("Login")
-st.markdown("</div>", unsafe_allow_html=True)
-
-if login_button and username and password:
-    st.session_state.logged_in = True
-    st.success(f"Welcome, {username}! Please select a product.")
-
-    product = st.selectbox("Select Product Type", ["-- Select --", "Commodity", "Equity", "Real Estate", "Cryptos", "Banking Credit"])
-    if product == "Commodity":
-        st.markdown("""
-        <div style='background-color: rgba(255, 255, 255, 0.92); padding: 1.5rem; margin-top: 2rem; border-radius: 10px; width: 40%;'>
-        <h4>Select an Action</h4>
-        """, unsafe_allow_html=True)
-
-        col1, col2 = st.columns(2)
+def dashboard_page():
+    # Sidebar toggle
+    if st.button("☰" if st.session_state.sidebar_expanded else "☰", key="sidebar_toggle"):
+        st.session_state.sidebar_expanded = not st.session_state.sidebar_expanded
+        st.rerun()
+    
+    if st.session_state.sidebar_expanded:
+        show_sidebar()
+    
+    # Main content
+    with st.container():
+        st.title("📊 Trading Dashboard")
+        
+        # Stats cards
+        col1, col2, col3 = st.columns(3)
         with col1:
-            if st.button("Upload Trade File"):
-                st.session_state.mode = "upload"
-                st.success("You selected to upload a trade file. Proceed to Trade Register.")
+            with st.container():
+                st.markdown("""
+                <div class='card'>
+                    <h3>Open Positions</h3>
+                    <h1 style='color: #6a1b9a;'>142</h1>
+                    <p>+12% from last week</p>
+                </div>
+                """, unsafe_allow_html=True)
+        
         with col2:
-            if st.button("Create Manual Trade"):
-                st.session_state.mode = "manual"
-                st.success("You selected to create a manual trade. Proceed to Trade Entry.")
+            with st.container():
+                st.markdown("""
+                <div class='card'>
+                    <h3>Risk Exposure</h3>
+                    <h1 style='color: #f63366;'>$4.2M</h1>
+                    <p>Within limits</p>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        with col3:
+            with st.container():
+                st.markdown("""
+                <div class='card'>
+                    <h3>Today's P&L</h3>
+                    <h1 style='color: #21c354;'>$124K</h1>
+                    <p>+2.4% MTD</p>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        # Recent trades table
+        with st.container():
+            st.markdown("""
+            <div class='card'>
+                <h3>Recent Trades</h3>
+            """, unsafe_allow_html=True)
+            
+            trades = pd.DataFrame({
+                'Trade ID': ['FX-2023-0456', 'IRS-2023-0789', 'OPT-2023-0321'],
+                'Instrument': ['EUR/USD', '10Y IRS', 'SPX Call'],
+                'Notional': ['$5,000,000', '$10,000,000', '$2,500,000'],
+                'Price': [1.0856, 2.34, 35.50],
+                'Date': ['2023-05-15', '2023-05-14', '2023-05-13'],
+                'Status': ['Active', 'Active', 'Expired']
+            })
+            
+            st.dataframe(trades, hide_index=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("</div>", unsafe_allow_html=True)
+# ... [Keep all your other page functions unchanged but add the sidebar toggle and back button pattern]
 
-# Back button functionality
-if 'mode' in st.session_state and st.session_state.mode in ["upload", "manual"]:
-    if st.button("⬅ Go Back"):
-        del st.session_state.mode
-        st.experimental_rerun()
+# ---- MAIN APP ----
+def main():
+    set_app_style()
+    
+    if not st.session_state.auth:
+        login_page()
+    else:
+        if st.session_state.current_page == "dashboard":
+            dashboard_page()
+        elif st.session_state.current_page == "upload":
+            upload_page()
+        elif st.session_state.current_page == "manual":
+            manual_page()
+        elif st.session_state.current_page == "analytics":
+            analytics_page()
+        elif st.session_state.current_page == "settings":
+            settings_page()
+        elif st.session_state.current_page == "processing":
+            processing_page()
 
-# Always keep sidebar visible
-st.markdown("""
-<style>
-    [data-testid="stSidebar"] { visibility: visible !important; }
-</style>
-""", unsafe_allow_html=True)
+if __name__ == "__main__":
+    main()
