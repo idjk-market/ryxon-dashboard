@@ -1,24 +1,77 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
+import time
 
-st.set_page_config(page_title="Trade Register", layout="wide")
-st.title("📘 Trade Register")
+st.set_page_config(page_title="Upload Trades", layout="wide")
 
-if 'trade_book' not in st.session_state or not st.session_state.trade_book:
-    st.warning("No trades submitted yet.")
-else:
-    trades_df = pd.DataFrame(st.session_state.trade_book)
+# Header
+st.title("📂 Trade File Upload")
 
-    with st.expander("🔍 Filter Trades"):
-        columns = trades_df.columns.tolist()
-        filters = {}
-        cols = st.columns(len(columns))
-        for i, col in enumerate(columns):
-            filters[col] = cols[i].selectbox(f"{col} Filter", options=["All"] + sorted(trades_df[col].dropna().unique().astype(str).tolist()))
+# Card UI style
+st.markdown("""
+    <style>
+        .card {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-        for key, value in filters.items():
-            if value != "All":
-                trades_df = trades_df[trades_df[key].astype(str) == value]
+# Upload Section
+st.markdown("""
+    <div class='card'>
+        <h3>Upload Trade Register</h3>
+        <p>Supported formats: CSV, Excel (XLSX)</p>
+""", unsafe_allow_html=True)
 
-    st.dataframe(trades_df, use_container_width=True)
-    st.download_button("📥 Download as Excel", data=trades_df.to_csv(index=False), file_name="ryxon_trade_register.csv", mime="text/csv")
+uploaded_file = st.file_uploader("Upload a trade file", type=["csv", "xlsx"])
+
+if uploaded_file:
+    try:
+        # Read file based on extension
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+
+        # Required columns
+        required_cols = ['TradeID', 'Instrument', 'Notional', 'Price', 'TradeDate']
+        missing_cols = [col for col in required_cols if col not in df.columns]
+
+        if missing_cols:
+            st.error(f"Missing required columns: {', '.join(missing_cols)}")
+        else:
+            st.success(f"✅ Successfully loaded {len(df)} trades")
+            st.session_state['uploaded_trades'] = df
+
+            # Display preview
+            with st.expander("📋 Preview Trade Data"):
+                st.dataframe(df, use_container_width=True)
+
+            # Basic analytics
+            st.markdown("""
+                <div class='card'>
+                <h4>Summary Analytics</h4>
+            """, unsafe_allow_html=True)
+            st.write("**Total Trades:**", len(df))
+            st.write("**Total Notional:**", f"${df['Notional'].sum():,.2f}")
+            st.write("**Instruments Used:**", df['Instrument'].nunique())
+            st.markdown("</div>", unsafe_allow_html=True)
+
+            # Optional: Save button
+            if st.button("📥 Save to Register"):
+                st.success("Data saved for further processing")
+
+    except Exception as e:
+        st.error(f"Error reading file: {str(e)}")
+
+# Back button
+if st.button("⬅ Go Back"):
+    st.session_state.current_page = "dashboard"
+    st.rerun()
+
+st.markdown("</div>", unsafe_allow_html=True)
