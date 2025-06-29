@@ -1,34 +1,34 @@
+# trade_input.py
 import streamlit as st
 import pandas as pd
 
-st.title("📝 Manual Trade Entry")
-
-st.markdown("Enter trade details below. This is useful for paper trading or strategy simulation.")
-
-with st.form("trade_form"):
-    trade_date = st.date_input("Trade Date")
-    commodity = st.selectbox("Commodity", ["Gold", "Silver", "Crude", "Copper"])
-    instrument = st.selectbox("Instrument Type", ["Future", "Option", "Swap"])
-    direction = st.selectbox("Trade Direction", ["Buy", "Sell"])
-    quantity = st.number_input("Quantity", min_value=0.0)
-    book_price = st.number_input("Book Price", min_value=0.0)
-    market_price = st.number_input("Market Price", min_value=0.0)
+def render_upload_trades():
+    st.header("Upload Trades")
     
-    submitted = st.form_submit_button("Submit Trade")
-
-if submitted:
-    mtm = (market_price - book_price) * quantity if direction == "Buy" else (book_price - market_price) * quantity
-    st.success(f"Trade submitted successfully! MTM = ${mtm:,.2f}")
-
-    new_trade = pd.DataFrame([{
-        "Trade Date": trade_date,
-        "Commodity": commodity,
-        "Instrument Type": instrument,
-        "Trade Action": direction,
-        "Quantity": quantity,
-        "Book Price": book_price,
-        "Market Price": market_price,
-        "MTM": mtm
-    }])
-
-    st.dataframe(new_trade, use_container_width=True)
+    uploaded_file = st.file_uploader(
+        "Choose a trade file (CSV/Excel)",
+        type=["csv", "xlsx"]
+    )
+    
+    if uploaded_file:
+        try:
+            if uploaded_file.name.endswith('.csv'):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
+                
+            st.success("File uploaded successfully!")
+            st.dataframe(df)
+            
+            # Show basic analytics
+            st.subheader("Upload Analytics")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total Trades", len(df))
+                st.metric("Total Notional", f"${df['Notional'].sum():,.2f}")
+            with col2:
+                st.metric("Unique Instruments", df['Instrument'].nunique())
+                st.metric("Earliest Trade Date", df['Date'].min())
+                
+        except Exception as e:
+            st.error(f"Error processing file: {str(e)}")
